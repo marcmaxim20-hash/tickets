@@ -1,0 +1,164 @@
+{% extends 'admin/base_admin.html.twig' %}
+
+{% block title %}All Tickets ({{ counts.total }}) — Admin Panel{% endblock %}
+
+{% block admin_body %}
+<div class="page-heading">
+    <div>
+        <h1>All Submitted Tickets</h1>
+        <p>Inspect unique QR tokens, entrance scan usage, customer accounts, and ticket statuses.</p>
+    </div>
+    <div style="display:flex;gap:0.55rem;flex-wrap:wrap;">
+        <a href="{{ path('staff_scanner') }}" class="btn btn-primary">Open Entrance QR Scanner</a>
+        <a href="{{ path('ticket_new') }}" class="btn btn-festival">+ Buy QR Ticket</a>
+    </div>
+</div>
+
+<div class="kpi-grid" aria-label="Ticket Summary Metrics">
+    <a href="{{ path('admin_dashboard', search ? {q: search} : {}) }}" class="kpi-card {{ active_status is null ? 'active' : '' }}">
+        <div class="kpi-label"><span>Total Tickets</span></div>
+        <div class="kpi-value">{{ counts.total }}</div>
+    </a>
+
+    <a href="{{ path('admin_dashboard', {status: 'open'}|merge(search ? {q: search} : {})) }}" class="kpi-card {{ active_status == 'open' ? 'active' : '' }}">
+        <div class="kpi-label">
+            <span>Open</span>
+            <span class="badge-dot" style="background: var(--status-open-dot);"></span>
+        </div>
+        <div class="kpi-value">{{ counts.open }}</div>
+    </a>
+
+    <a href="{{ path('admin_dashboard', {status: 'in_progress'}|merge(search ? {q: search} : {})) }}" class="kpi-card {{ active_status == 'in_progress' ? 'active' : '' }}">
+        <div class="kpi-label">
+            <span>In Progress</span>
+            <span class="badge-dot" style="background: var(--status-progress-dot);"></span>
+        </div>
+        <div class="kpi-value">{{ counts.in_progress }}</div>
+    </a>
+
+    <a href="{{ path('admin_dashboard', {status: 'resolved'}|merge(search ? {q: search} : {})) }}" class="kpi-card {{ active_status == 'resolved' ? 'active' : '' }}">
+        <div class="kpi-label">
+            <span>Resolved</span>
+            <span class="badge-dot" style="background: var(--status-resolved-dot);"></span>
+        </div>
+        <div class="kpi-value">{{ counts.resolved }}</div>
+    </a>
+</div>
+
+<section class="card">
+    <div class="toolbar">
+        <div class="filter-tabs" role="tablist" aria-label="Filter by status">
+            <a href="{{ path('admin_dashboard', search ? {q: search} : {}) }}" class="filter-tab {{ active_status is null ? 'active' : '' }}">
+                All ({{ counts.total }})
+            </a>
+            {% for key, label in available_statuses %}
+                <a href="{{ path('admin_dashboard', {status: key}|merge(search ? {q: search} : {})) }}" class="filter-tab {{ active_status == key ? 'active' : '' }}">
+                    {{ label }} ({{ attribute(counts, key) }})
+                </a>
+            {% endfor %}
+        </div>
+
+        <form method="get" action="{{ path('admin_dashboard') }}" class="search-form">
+            {% if active_status %}
+                <input type="hidden" name="status" value="{{ active_status }}">
+            {% endif %}
+            <input
+                type="search"
+                name="q"
+                value="{{ search }}"
+                placeholder="Search #ID, email, or QR token..."
+                class="search-input"
+                aria-label="Search tickets"
+            >
+            <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+            {% if search or active_status %}
+                <a href="{{ path('admin_dashboard') }}" class="btn btn-secondary btn-sm">Reset</a>
+            {% endif %}
+        </form>
+    </div>
+
+    {% if tickets is empty %}
+        <div class="empty-state">
+            <h3>No tickets found</h3>
+            <p>When customers buy QR tickets, they appear here.</p>
+            <a href="{{ path('ticket_new') }}" class="btn btn-festival btn-sm">Buy QR Ticket</a>
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="ticket-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Email / Customer</th>
+                        <th>Entrance QR Status</th>
+                        <th>Created</th>
+                        <th>Admin Status</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                        <tr>
+                            <td><span class="ticket-id">#{{ ticket.id }}</span></td>
+                            <td>
+                                <a href="{{ path('admin_ticket_show', {id: ticket.id}) }}" class="ticket-title-link">
+                                    {{ ticket.contact }}
+                                </a>
+                                <div class="ticket-excerpt">
+                                    {% if ticket.customer %}Account: {{ ticket.customer.name }} &middot; {% endif %}
+                                    QR: <code>{{ ticket.qrToken|slice(0, 10) }}…</code>
+                                </div>
+                            </td>
+                            <td>
+                                {% if ticket.used %}
+                                    <span class="badge badge-used">
+                                        <span class="badge-dot"></span>
+                                        Used {{ ticket.usedAt|date('M j, H:i') }}
+                                    </span>
+                                {% elseif ticket.qrExpired %}
+                                    <span class="badge badge-expired">Expired</span>
+                                {% else %}
+                                    <span class="badge badge-unused">
+                                        <span class="badge-dot"></span>
+                                        Unused
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td style="white-space: nowrap; color: var(--text-muted); font-size: 0.85rem;">
+                                {{ ticket.createdAt|date('M j, Y H:i') }}
+                            </td>
+                            <td>
+                                <span class="badge badge-{{ ticket.status }}">
+                                    <span class="badge-dot"></span>
+                                    {{ ticket.statusLabel }}
+                                </span>
+                            </td>
+                            <td style="text-align: right; white-space: nowrap;">
+                                <form method="post" action="{{ path('admin_ticket_status', {id: ticket.id}) }}" class="inline-status-form">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('ticket_status_' ~ ticket.id) }}">
+                                    <input type="hidden" name="redirect_to" value="dashboard">
+                                    <input type="hidden" name="filter_status" value="{{ active_status }}">
+                                    <input type="hidden" name="filter_q" value="{{ search }}">
+                                    <select
+                                        name="status"
+                                        class="inline-select"
+                                        aria-label="Change status for ticket #{{ ticket.id }}"
+                                        onchange="this.form.requestSubmit()"
+                                    >
+                                        {% for key, label in available_statuses %}
+                                            <option value="{{ key }}" {{ ticket.status == key ? 'selected' : '' }}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
+                                <a href="{{ path('admin_ticket_show', {id: ticket.id}) }}" class="btn btn-secondary btn-sm" style="margin-left: 0.4rem;">
+                                    Details &rarr;
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+parameters:
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $adminAccessCode: '%env(ADMIN_ACCESS_CODE)%'
+            string $smtpHost: '%env(SMTP_HOST)%'
+            string $smtpPort: '%env(SMTP_PORT)%'
+            string $smtpUser: '%env(SMTP_USER)%'
+            string $smtpPassword: '%env(SMTP_PASSWORD)%'
+            string $smtpFrom: '%env(SMTP_FROM)%'
+            string $mailerDsn: '%env(MAILER_DSN)%'
+            string $showEntryCode: '%env(SHOW_ENTRY_CODE)%'
+
+    App\:
+        resource: '../src/'

@@ -1,0 +1,168 @@
+{% extends 'admin/base_admin.html.twig' %}
+
+{% block title %}Ticket #{{ ticket.id }} — Admin Panel{% endblock %}
+
+{% block admin_body %}
+<div class="breadcrumb">
+    <a href="{{ path('admin_dashboard') }}">&larr; Back to All Tickets</a>
+</div>
+
+<div class="detail-grid">
+    <article class="card">
+        <div class="card-header">
+            <div>
+                <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                    <span class="ticket-id">#{{ ticket.id }}</span>
+                    <span class="badge badge-{{ ticket.status }}">
+                        <span class="badge-dot"></span>
+                        {{ ticket.statusLabel }}
+                    </span>
+                    {% if ticket.used %}
+                        <span class="badge badge-used"><span class="badge-dot"></span>USED at Entrance ({{ ticket.usedAt|date('M j, H:i:s') }})</span>
+                    {% elseif ticket.qrExpired %}
+                        <span class="badge badge-expired">QR Expired (&gt;24h)</span>
+                    {% else %}
+                        <span class="badge badge-unused"><span class="badge-dot"></span>Unused QR</span>
+                    {% endif %}
+                </div>
+                <h1 class="detail-title">{{ ticket.title }}</h1>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <h2 class="meta-label" style="margin: 0 0 0.6rem;">Ticket Details</h2>
+            <div class="detail-description">{{ ticket.description }}</div>
+
+            {% if ticket.festivalTicket and qr_svg %}
+                <div style="margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                    <h2 class="meta-label" style="margin: 0 0 0.85rem;">Unique QR Code &amp; Single-Use Entrance Controls</h2>
+                    <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+                        <div class="qr-frame {{ not ticket.qrValid ? 'expired' : '' }}" style="padding:0.75rem;">
+                            {{ qr_svg|raw }}
+                        </div>
+                        <div style="flex:1;min-width:240px;">
+                            <p style="margin:0 0 0.4rem;font-size:0.84rem;color:var(--text-muted);">
+                                Unique Token: <code>{{ ticket.qrToken }}</code>
+                            </p>
+                            {% if ticket.used %}
+                                <p style="margin:0 0 0.5rem;font-weight:700;color:var(--danger-text);">
+                                    Already Scanned &amp; Used on {{ ticket.usedAt|date('M j, Y H:i:s') }} (Second scan will be blocked)
+                                </p>
+                            {% elseif ticket.qrValid %}
+                                <p style="margin:0 0 0.5rem;font-weight:700;color:var(--status-resolved-text);">
+                                    Unused &amp; Active until {{ ticket.qrExpiresAt|date('M j, Y H:i:s') }}
+                                </p>
+                            {% else %}
+                                <p style="margin:0 0 0.5rem;font-weight:700;color:var(--danger-text);">
+                                    Expired on {{ ticket.qrExpiresAt|date('M j, Y H:i:s') }}
+                                </p>
+                            {% endif %}
+
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.85rem;">
+                                <form method="post" action="{{ path('staff_scanner_checkin') }}" style="margin:0;">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('staff_scanner_checkin') }}">
+                                    <input type="hidden" name="qr_input" value="{{ ticket.qrToken }}">
+                                    <button type="submit" class="btn btn-festival btn-sm">Scan at Entrance</button>
+                                </form>
+
+                                {% if ticket.used %}
+                                    <form method="post" action="{{ path('admin_ticket_qr_expiry', {id: ticket.id}) }}" style="margin:0;">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('ticket_qr_' ~ ticket.id) }}">
+                                        <input type="hidden" name="action" value="reset_used">
+                                        <button type="submit" class="btn btn-secondary btn-sm">Reset to Unused (Test Helper)</button>
+                                    </form>
+                                {% endif %}
+
+                                <form method="post" action="{{ path('admin_ticket_qr_expiry', {id: ticket.id}) }}" style="margin:0;">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('ticket_qr_' ~ ticket.id) }}">
+                                    {% if not ticket.qrExpired %}
+                                        <input type="hidden" name="action" value="expire">
+                                        <button type="submit" class="btn btn-secondary btn-sm">Simulate 24h Expiry</button>
+                                    {% else %}
+                                        <input type="hidden" name="action" value="renew">
+                                        <button type="submit" class="btn btn-secondary btn-sm">Renew 24h Timer</button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </article>
+
+    <aside style="display: grid; gap: 1.25rem;">
+        <section class="card">
+            <div class="card-header">
+                <h2 class="section-title" style="font-size: 1.05rem;">Update Ticket Status</h2>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{{ path('admin_ticket_status', {id: ticket.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('ticket_status_' ~ ticket.id) }}">
+                    <input type="hidden" name="redirect_to" value="show">
+
+                    <div class="status-option-list">
+                        <label class="status-radio-card">
+                            <input type="radio" name="status" value="open" {{ ticket.status == 'open' ? 'checked' : '' }}>
+                            <span>
+                                <span class="status-radio-title">Open</span>
+                                <span class="status-radio-desc">Awaiting initial review or assignment.</span>
+                            </span>
+                        </label>
+
+                        <label class="status-radio-card">
+                            <input type="radio" name="status" value="in_progress" {{ ticket.status == 'in_progress' ? 'checked' : '' }}>
+                            <span>
+                                <span class="status-radio-title">In Progress</span>
+                                <span class="status-radio-desc">Actively being investigated or worked on.</span>
+                            </span>
+                        </label>
+
+                        <label class="status-radio-card">
+                            <input type="radio" name="status" value="resolved" {{ ticket.status == 'resolved' ? 'checked' : '' }}>
+                            <span>
+                                <span class="status-radio-title">Resolved</span>
+                                <span class="status-radio-desc">Issue has been addressed and completed.</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        Save Status
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <h2 class="section-title" style="font-size: 1.05rem;">Ticket Metadata</h2>
+            </div>
+            <div class="card-body" style="padding-top: 0.85rem; padding-bottom: 1.1rem;">
+                <ul class="meta-list">
+                    <li>
+                        <span class="meta-label">Customer Email</span>
+                        <span class="meta-value">{{ ticket.contact }}</span>
+                    </li>
+                    {% if ticket.customer %}
+                        <li>
+                            <span class="meta-label">Linked Customer Account</span>
+                            <span class="meta-value">{{ ticket.customer.name }} (#{{ ticket.customer.id }})</span>
+                        </li>
+                    {% endif %}
+                    <li>
+                        <span class="meta-label">Created At</span>
+                        <span class="meta-value">{{ ticket.createdAt|date('F j, Y \\a\\t H:i:s') }}</span>
+                    </li>
+                    {% if ticket.used %}
+                        <li>
+                            <span class="meta-label">Scanned at Entrance</span>
+                            <span class="meta-value" style="color:var(--danger-text);font-weight:700;">{{ ticket.usedAt|date('F j, Y \\a\\t H:i:s') }}</span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </section>
+    </aside>
+</div>
+{% endblock %}

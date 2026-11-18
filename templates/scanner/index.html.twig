@@ -1,0 +1,268 @@
+{% extends 'admin/base_admin.html.twig' %}
+
+{% block title %}Entrance QR Scanner — Staff Console{% endblock %}
+
+{% block admin_body %}
+<div class="page-heading">
+    <div>
+        <h1>Entrance QR Scanner</h1>
+        <p>Scan ticket QR codes as guests arrive. Each valid ticket is marked as <strong>USED</strong> in MySQL on first scan and blocked from being used twice.</p>
+    </div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+        <span class="badge badge-unused" style="font-size:0.86rem;padding:0.45rem 0.85rem;">
+            <span class="badge-dot"></span> Ready Unused: {{ counts.unused_valid }}
+        </span>
+        <span class="badge badge-used" style="font-size:0.86rem;padding:0.45rem 0.85rem;">
+            <span class="badge-dot"></span> Already Scanned / Used: {{ counts.used }}
+        </span>
+    </div>
+</div>
+
+{% if scan_result %}
+    {% if scan_result.outcome == 'admitted' %}
+        <div class="scan-banner scan-banner-admitted" role="status">
+            <div class="door-icon-circle" style="margin:0;width:64px;height:64px;background:#10b981;color:#fff;flex-shrink:0;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+            </div>
+            <div>
+                <h2 style="margin:0 0 0.3rem;font-size:1.45rem;font-weight:800;">{{ scan_result.title }}</h2>
+                <p style="margin:0;font-size:1rem;">{{ scan_result.message }}</p>
+            </div>
+        </div>
+    {% else %}
+        <div class="scan-banner scan-banner-denied" role="alert">
+            <div class="door-icon-circle" style="margin:0;width:64px;height:64px;background:#ef4444;color:#fff;flex-shrink:0;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </div>
+            <div>
+                <h2 style="margin:0 0 0.3rem;font-size:1.45rem;font-weight:800;">{{ scan_result.title }}</h2>
+                <p style="margin:0;font-size:1rem;">{{ scan_result.message }}</p>
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+
+<div class="scanner-grid">
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="section-title">Scan or Enter QR Code</h2>
+                <p class="section-subtitle">Works with handheld scanners, pasted QR links/tokens, or #TicketID.</p>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ path('staff_scanner_checkin') }}" id="scanner-checkin-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('staff_scanner_checkin') }}">
+                <div class="form-group">
+                    <label for="qr_input" class="form-label">QR Code Data / Token / Ticket #ID</label>
+                    <input
+                        type="text"
+                        id="qr_input"
+                        name="qr_input"
+                        class="form-control"
+                        placeholder="Scan QR or paste link / token / #ID..."
+                        autocomplete="off"
+                        autofocus
+                        required
+                    >
+                </div>
+                <button type="submit" class="btn btn-festival" style="width:100%;padding:0.8rem 1rem;font-size:1rem;">
+                    Scan &amp; Mark Ticket as Used
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="section-title">Camera &amp; Image QR Reader</h2>
+                <p class="section-subtitle">Scan using your device camera or upload a downloaded QR `.png` image.</p>
+            </div>
+        </div>
+        <div class="card-body">
+            <div style="display:flex;gap:0.65rem;flex-wrap:wrap;">
+                <button type="button" id="btn-start-camera" class="btn btn-primary">
+                    Start Camera Scanner
+                </button>
+                <label class="btn btn-secondary" style="cursor:pointer;">
+                    Upload QR Image (.PNG)
+                    <input type="file" id="qr-file-input" accept="image/*" style="display:none;">
+                </label>
+            </div>
+
+            <p id="camera-status-msg" class="form-hint" style="margin-top:0.75rem;">
+                Select camera scanning or upload a ticket QR `.png` image to automatically verify &amp; check in.
+            </p>
+
+            <div id="camera-preview-wrap" class="camera-preview-wrap">
+                <video id="scanner-video" playsinline muted></video>
+            </div>
+        </div>
+    </section>
+</div>
+
+<section class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="section-title">Recent Tickets — Quick Entrance Scan Queue</h2>
+            <p class="section-subtitle">Click <strong>Scan QR</strong> once to mark a ticket as used, then click it a second time to verify double-entry protection.</p>
+        </div>
+    </div>
+
+    {% if recent_tickets is empty %}
+        <div class="empty-state">
+            <h3>No tickets in database yet</h3>
+            <p>Buy a ticket on the public site first, then scan it here.</p>
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="ticket-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer Email</th>
+                        <th>Unique QR Token</th>
+                        <th>Entrance Scan Status</th>
+                        <th style="text-align:right;">Entrance Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in recent_tickets %}
+                        <tr>
+                            <td><span class="ticket-id">#{{ ticket.id }}</span></td>
+                            <td>
+                                <strong>{{ ticket.contact }}</strong>
+                                {% if ticket.customer %}
+                                    <div style="font-size:0.78rem;color:var(--text-muted);">Account: {{ ticket.customer.name }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <code style="font-size:0.8rem;color:var(--text-muted);">{{ ticket.qrToken|slice(0, 14) }}…</code>
+                            </td>
+                            <td>
+                                {% if ticket.used %}
+                                    <span class="badge badge-used">
+                                        <span class="badge-dot"></span>
+                                        USED on {{ ticket.usedAt|date('M j, H:i:s') }}
+                                    </span>
+                                {% elseif ticket.qrExpired %}
+                                    <span class="badge badge-expired">Expired (&gt;24h)</span>
+                                {% else %}
+                                    <span class="badge badge-unused">
+                                        <span class="badge-dot"></span>
+                                        Unused &middot; Valid
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right;white-space:nowrap;">
+                                <form method="post" action="{{ path('staff_scanner_checkin') }}" style="display:inline;">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('staff_scanner_checkin') }}">
+                                    <input type="hidden" name="qr_input" value="{{ ticket.qrToken }}">
+                                    <button type="submit" class="btn {{ ticket.used ? 'btn-secondary' : 'btn-festival' }} btn-sm">
+                                        {{ ticket.used ? 'Try Scanning Again' : 'Scan QR at Entrance' }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</section>
+
+<script>
+(() => {
+    const form = document.getElementById('scanner-checkin-form');
+    const input = document.getElementById('qr_input');
+    const startBtn = document.getElementById('btn-start-camera');
+    const fileInput = document.getElementById('qr-file-input');
+    const statusMsg = document.getElementById('camera-status-msg');
+    const previewWrap = document.getElementById('camera-preview-wrap');
+    const video = document.getElementById('scanner-video');
+
+    let stream = null;
+    let scanning = false;
+
+    const submitDecodedValue = (rawValue) => {
+        if (!rawValue) return;
+        input.value = rawValue.trim();
+        form.requestSubmit();
+    };
+
+    fileInput?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!('BarcodeDetector' in window)) {
+            statusMsg.textContent = 'Your browser does not enable native BarcodeDetector for images — paste the QR token or use the Quick Scan Queue below.';
+            return;
+        }
+
+        try {
+            const detector = new BarcodeDetector({ formats: ['qr_code'] });
+            const bitmap = await createImageBitmap(file);
+            const codes = await detector.detect(bitmap);
+            if (codes.length > 0 && codes[0].rawValue) {
+                statusMsg.textContent = 'QR decoded! Checking ticket at entrance...';
+                submitDecodedValue(codes[0].rawValue);
+            } else {
+                statusMsg.textContent = 'No QR code detected in that image. Try another image or paste the token.';
+            }
+        } catch (err) {
+            statusMsg.textContent = 'Could not decode QR from image: ' + err.message;
+        }
+    });
+
+    startBtn?.addEventListener('click', async () => {
+        if (scanning) {
+            scanning = false;
+            stream?.getTracks().forEach((t) => t.stop());
+            previewWrap.classList.remove('active');
+            startBtn.textContent = 'Start Camera Scanner';
+            statusMsg.textContent = 'Camera stopped.';
+            return;
+        }
+
+        if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
+            statusMsg.textContent = 'Live camera QR detection requires Chrome/Edge/Android with camera access, or use the Quick Scan Queue below.';
+            return;
+        }
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = stream;
+            await video.play();
+            previewWrap.classList.add('active');
+            scanning = true;
+            startBtn.textContent = 'Stop Camera';
+            statusMsg.textContent = 'Point camera at a ticket QR code...';
+
+            const detector = new BarcodeDetector({ formats: ['qr_code'] });
+            const scanLoop = async () => {
+                if (!scanning) return;
+                try {
+                    const codes = await detector.detect(video);
+                    if (codes.length > 0 && codes[0].rawValue) {
+                        scanning = false;
+                        stream?.getTracks().forEach((t) => t.stop());
+                        statusMsg.textContent = 'QR scanned! Marking ticket as used...';
+                        submitDecodedValue(codes[0].rawValue);
+                        return;
+                    }
+                } catch (_) {}
+                requestAnimationFrame(scanLoop);
+            };
+            requestAnimationFrame(scanLoop);
+        } catch (err) {
+            statusMsg.textContent = 'Camera access unavailable (' + err.message + '). Use Upload QR Image or the Quick Scan Queue below.';
+        }
+    });
+})();
+</script>
+{% endblock %}

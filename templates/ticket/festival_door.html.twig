@@ -1,0 +1,134 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Entrance Gate Verification — Ticket #{{ ticket.id }}{% endblock %}
+
+{% block body %}
+<div class="container-narrow">
+    <div class="breadcrumb" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+        <a href="{{ path('festival_pass_show', {token: ticket.qrToken}) }}">&larr; Back to QR Pass #{{ ticket.id }}</a>
+        <a href="{{ path('staff_scanner') }}">Open Staff Scanner Console &rarr;</a>
+    </div>
+
+    {% if door_state == 'admitted_now' %}
+        <section class="door-screen door-unlocked" role="status">
+            <div class="door-icon-circle" aria-hidden="true">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+            </div>
+
+            <span class="badge badge-resolved" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+                <span class="badge-dot"></span> FIRST SCAN VERIFIED &middot; MARKED AS USED
+            </span>
+
+            <h1 style="margin: 0 0 0.6rem; font-size: 2rem; font-weight: 800; color: #064e3b;">
+                FESTIVAL DOOR OPENED!
+            </h1>
+            <p style="margin: 0 auto 1.75rem; max-width: 480px; font-size: 1.05rem; color: #047857;">
+                Guest <strong>{{ ticket.contact }}</strong> admitted! Ticket <strong>#{{ ticket.id }}</strong> has now been marked as <strong>USED</strong> in MySQL ({{ ticket.usedAt|date('H:i:s') }}) and cannot be used a second time.
+            </p>
+
+            <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+                <a href="{{ path('festival_door_scan', {token: ticket.qrToken}) }}" class="btn btn-secondary">
+                    Test Scanning Same QR Again
+                </a>
+                <a href="{{ path('staff_scanner') }}" class="btn btn-primary">Back to Entrance Scanner</a>
+            </div>
+        </section>
+
+    {% elseif door_state == 'ready_to_scan' %}
+        <section class="door-screen door-unlocked" style="background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%); border-color: var(--primary-border);">
+            <span class="badge badge-unused" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+                <span class="badge-dot"></span> VALID UNUSED TICKET (#{{ ticket.id }})
+            </span>
+
+            <h1 style="margin: 0 0 0.5rem; font-size: 1.85rem; font-weight: 800; color: var(--text-main);">
+                Ready for Entrance Scan
+            </h1>
+            <p style="margin: 0 auto 1.5rem; max-width: 470px; color: var(--text-secondary);">
+                Ticket for <strong>{{ ticket.contact }}</strong> is valid and has <strong>not been used yet</strong>. Staff can check this ticket in below to open the door and mark it as used.
+            </p>
+
+            {% if staff_error %}
+                <div class="alert alert-error" style="max-width:420px;margin:0 auto 1.25rem;text-align:left;">
+                    {{ staff_error }}
+                </div>
+            {% endif %}
+
+            <form method="post" action="{{ path('festival_door_checkin', {token: ticket.qrToken}) }}" style="max-width:380px;margin:0 auto;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('door_checkin_' ~ ticket.getId()) }}">
+
+                {% if not is_staff %}
+                    <div class="form-group" style="text-align:left;">
+                        <label for="staff_code" class="form-label">Staff Access Code (<code>1234</code>)</label>
+                        <input
+                            type="password"
+                            id="staff_code"
+                            name="staff_code"
+                            class="form-control gate-code-input"
+                            inputmode="numeric"
+                            placeholder="••••"
+                            required
+                        >
+                    </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-festival btn-lg" style="width:100%;">
+                    Scan &amp; Mark Ticket as Used (Open Door)
+                </button>
+            </form>
+        </section>
+
+    {% elseif door_state == 'already_used' %}
+        <section class="door-screen door-locked" role="alert">
+            <div class="door-icon-circle" aria-hidden="true">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </div>
+
+            <span class="badge badge-used" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+                <span class="badge-dot"></span> DOUBLE ENTRY BLOCKED &middot; ALREADY USED
+            </span>
+
+            <h1 style="margin: 0 0 0.6rem; font-size: 2rem; font-weight: 800; color: #7f1d1d;">
+                ACCESS DENIED — TICKET ALREADY USED!
+            </h1>
+            <p style="margin: 0 auto 1.75rem; max-width: 480px; font-size: 1.05rem; color: #b91c1c;">
+                Ticket <strong>#{{ ticket.id }}</strong> ({{ ticket.contact }}) was already scanned at the entrance on <strong>{{ ticket.usedAt|date('M j, Y \\a\\t H:i:s') }}</strong> and cannot be used a second time.
+            </p>
+
+            <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+                <a href="{{ path('staff_scanner') }}" class="btn btn-primary">Open Staff Scanner</a>
+                <a href="{{ path('ticket_home') }}" class="btn btn-secondary">Back to Main Page</a>
+            </div>
+        </section>
+
+    {% else %}
+        <section class="door-screen door-locked" role="alert">
+            <div class="door-icon-circle" aria-hidden="true">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            </div>
+
+            <span class="badge badge-expired" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+                QR EXPIRED &middot; 24-HOUR LIMIT PASSED
+            </span>
+
+            <h1 style="margin: 0 0 0.6rem; font-size: 2rem; font-weight: 800; color: #7f1d1d;">
+                FESTIVAL DOOR LOCKED
+            </h1>
+            <p style="margin: 0 auto 1.75rem; max-width: 460px; font-size: 1.05rem; color: #b91c1c;">
+                Access denied. This QR code lasted only <strong>24 hours</strong> and expired on <strong>{{ ticket.qrExpiresAt|date('M j, Y \\a\\t H:i:s') }}</strong>.
+            </p>
+
+            <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+                <a href="{{ path('ticket_new') }}" class="btn btn-festival">Buy a Fresh 24h QR Ticket</a>
+                <a href="{{ path('ticket_home') }}" class="btn btn-secondary">Back to Main Page</a>
+            </div>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

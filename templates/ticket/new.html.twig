@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Buy Festival QR Ticket — SwiftDesk{% endblock %}
+
+{% block body %}
+<div class="container-narrow">
+    <div class="breadcrumb">
+        <a href="{{ path('ticket_home') }}">&larr; Back to main page</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header" style="background: linear-gradient(135deg, #ecfdf5 0%, #eef2ff 100%); border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);">
+            <div>
+                <span class="badge badge-festival" style="margin-bottom: 0.45rem;">24-Hour Festival Door QR</span>
+                <h1 class="section-title" style="font-size: 1.4rem;">Buy Festival QR Ticket</h1>
+                <p class="section-subtitle" style="color: var(--text-secondary);">
+                    Enter your email below. Your 24-hour Festival Door QR code will be emailed to you and a <strong>See QR</strong> button will appear in the main menu.
+                </p>
+            </div>
+        </div>
+        <div class="card-body">
+            {{ include('ticket/_form.html.twig', {form: form}) }}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}SwiftDesk — Unique QR Tickets, Customer Accounts &amp; Entrance Scanning{% endblock %}
+
+{% block body %}
+{% set qr_ticket = current_qr_ticket() %}
+{% set customer = current_customer() %}
+<div class="container">
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success" role="status">{{ message }}</div>
+    {% endfor %}
+
+    {% for message in app.flashes('warning') %}
+        <div class="alert alert-warning" role="alert">{{ message }}</div>
+    {% endfor %}
+
+    <section class="hero-card">
+        <div class="hero-eyebrow">
+            Single-Use Unique QR Codes &middot; Saved in MySQL
+        </div>
+
+        <h1 class="hero-title">Get your unique Festival QR Ticket.</h1>
+        <p class="hero-subtitle">
+            Every ticket generates its own unique QR code stored in MySQL, tracks your full purchase history in your <strong>Customer Account</strong>, and is verified once at the entrance so it can never be used twice.
+        </p>
+
+        <div class="hero-actions">
+            <a href="{{ path('ticket_new') }}" class="btn btn-festival btn-lg">
+                Buy QR Ticket
+            </a>
+
+            {% if qr_ticket %}
+                <a href="{{ path('festival_pass_show', {token: qr_ticket.qrToken}) }}" class="btn btn-primary btn-lg">
+                    See QR
+                </a>
+            {% endif %}
+
+            {% if customer %}
+                <a href="{{ path('account_dashboard') }}" class="btn btn-secondary btn-lg">
+                    My Tickets &amp; History
+                </a>
+            {% else %}
+                <a href="{{ path('account_register') }}" class="btn btn-secondary btn-lg">
+                    Customer Account
+                </a>
+            {% endif %}
+        </div>
+
+        <div class="hero-metrics" aria-label="Live Ticket Overview">
+            <span class="hero-metric-item">
+                <span class="badge badge-unused"><span class="badge-dot"></span>Ready Unused QR</span>
+                <strong>{{ stats.unused_valid }}</strong>
+            </span>
+            <span class="hero-metric-item">
+                <span class="badge badge-used"><span class="badge-dot"></span>Scanned &amp; Used</span>
+                <strong>{{ stats.used }}</strong>
+            </span>
+            <span class="hero-metric-item">
+                <span class="badge badge-open"><span class="badge-dot"></span>Total Saved in MySQL</span>
+                <strong>{{ stats.total }}</strong>
+            </span>
+        </div>
+    </section>
+
+    <section class="steps-grid" aria-label="How It Works">
+        <div class="step-card">
+            <div class="step-icon">1</div>
+            <h3>Unique QR Saved in MySQL</h3>
+            <p>Each ticket purchase creates a cryptographically unique QR token persisted permanently in MySQL (and emailed to you).</p>
+        </div>
+        <div class="step-card">
+            <div class="step-icon">2</div>
+            <h3>Customer Account &amp; History</h3>
+            <p>Sign up or log in at <a href="{{ path('account_dashboard') }}">Customer Account</a> to view all your active QR passes and complete purchase history.</p>
+        </div>
+        <div class="step-card">
+            <div class="step-icon">3</div>
+            <h3>Single-Use Entrance Scan</h3>
+            <p>Staff scan tickets at <a href="{{ path('staff_scanner') }}">Entrance Scanner</a> (code <code>1234</code>), marking each ticket as <strong>USED</strong> so it cannot be used twice.</p>
+        </div>
+    </section>
+
+    {% if recent_tickets is not empty %}
+        <section class="card recent-section" aria-labelledby="recent-heading">
+            <div class="card-header">
+                <div>
+                    <h2 id="recent-heading" class="section-title">Your Recent Tickets</h2>
+                    <p class="section-subtitle">Live single-use entrance status fetched directly from MySQL.</p>
+                </div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    {% if customer %}
+                        <a href="{{ path('account_dashboard') }}" class="btn btn-secondary btn-sm">Full Purchase History</a>
+                    {% else %}
+                        <a href="{{ path('account_register') }}" class="btn btn-secondary btn-sm">Save to Account</a>
+                    {% endif %}
+                    <a href="{{ path('ticket_new') }}" class="btn btn-festival btn-sm">+ Buy QR Ticket</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="recent-list">
+                    {% for ticket in recent_tickets %}
+                        <div class="recent-item">
+                            <div>
+                                <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
+                                    <span class="ticket-id">#{{ ticket.id }}</span>
+                                    <strong>{{ ticket.contact }}</strong>
+                                    {% if ticket.used %}
+                                        <span class="badge badge-used"><span class="badge-dot"></span>Used at Entrance</span>
+                                    {% elseif ticket.qrExpired %}
+                                        <span class="badge badge-expired">Expired</span>
+                                    {% else %}
+                                        <span class="badge badge-unused"><span class="badge-dot"></span>Unused &middot; Valid</span>
+                                    {% endif %}
+                                </div>
+                                <div class="recent-item-meta">
+                                    Purchased {{ ticket.createdAt|date('M j, Y \\a\\t H:i') }}
+                                    {% if ticket.used %}
+                                        &middot; Scanned on {{ ticket.usedAt|date('M j, H:i:s') }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
+                                {% if ticket.qrToken %}
+                                    <a href="{{ path('festival_pass_show', {token: ticket.qrToken}) }}" class="btn btn-secondary btn-sm">
+                                        See QR
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
+    <div class="form-group">
+        {{ form_label(form.contact, 'Email', {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.contact, {'attr': {'class': 'form-control'}}) }}
+        <div class="form-errors">{{ form_errors(form.contact) }}</div>
+        <span class="form-hint">Enter your email address to get your 24-hour Festival Door QR code (sent to your email and unlocked in the main menu).</span>
+    </div>
+
+    <div class="form-actions">
+        <a href="{{ path('ticket_home') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-festival">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/>
+            </svg>
+            Buy QR Ticket
+        </button>
+    </div>
+{{ form_end(form) }}

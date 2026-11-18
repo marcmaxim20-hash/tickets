@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Customer Sign In — SwiftDesk{% endblock %}
+
+{% block body %}
+<div class="gate-wrapper" style="max-width: 460px;">
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h1 class="section-title" style="font-size: 1.35rem;">Sign In to Your Account</h1>
+                <p class="section-subtitle">View all your QR tickets, live entrance status, and full purchase history.</p>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if error %}
+                <div class="alert alert-error" role="alert">{{ error }}</div>
+            {% endif %}
+
+            <form method="post" action="{{ path('account_login') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('customer_login') }}">
+
+                <div class="form-group">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value="{{ entered_email }}"
+                        class="form-control"
+                        placeholder="you@gmail.com"
+                        autofocus
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-control"
+                        placeholder="Enter your password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+                    Sign In
+                </button>
+            </form>
+
+            <div style="margin-top: 1.35rem; padding-top: 1.1rem; border-top: 1px solid var(--border-color); text-align: center; font-size: 0.9rem; color: var(--text-secondary);">
+                New here? <a href="{{ path('account_register') }}" style="font-weight: 700;">Create a Customer Account &rarr;</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

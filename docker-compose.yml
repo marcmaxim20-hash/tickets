@@ -1,0 +1,41 @@
+services:
+  database:
+    image: mysql:8.0
+    container_name: ticketing-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret_password
+      MYSQL_DATABASE: ticketing_db
+      MYSQL_USER: ticket_user
+      MYSQL_PASSWORD: ticket_password
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - ticket_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "ticket_user", "-pticket_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ticketing-web
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      APP_ENV: dev
+      APP_SECRET: f8b74e29c10a63d49518e2a7c4b9f012
+      DATABASE_URL: "mysql://ticket_user:ticket_password@database:3306/ticketing_db?serverVersion=8.0&charset=utf8mb4"
+      ADMIN_ACCESS_CODE: "1234"
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+
+volumes:
+  ticket_mysql_data:

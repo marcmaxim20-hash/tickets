@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SwiftDesk — QR Ticketing &amp; Customer Portal{% endblock %}</title>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+</head>
+<body>
+    {% set menu_qr_ticket = current_qr_ticket() %}
+    {% set customer = current_customer() %}
+    <header class="site-header">
+        <div class="container header-inner">
+            <a href="{{ path('ticket_home') }}" class="brand">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/>
+                    </svg>
+                </span>
+                <span>SwiftDesk</span>
+            </a>
+
+            <nav class="nav-links" aria-label="Main Menu" style="flex-wrap: wrap;">
+                <a href="{{ path('ticket_home') }}" class="nav-link {{ app.current_route == 'ticket_home' ? 'active' : '' }}">Home</a>
+                <a href="{{ path('ticket_new') }}" class="nav-link {{ app.current_route == 'ticket_new' ? 'active' : '' }}">Buy QR Ticket</a>
+
+                {% if menu_qr_ticket %}
+                    <a href="{{ path('festival_pass_show', {token: menu_qr_ticket.qrToken}) }}" class="btn btn-festival btn-sm">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/>
+                        </svg>
+                        See QR
+                    </a>
+                {% endif %}
+
+                {% if customer %}
+                    <a href="{{ path('account_dashboard') }}" class="nav-link {{ app.current_route starts with 'account_' ? 'active' : '' }}">
+                        My Account ({{ customer.name }})
+                    </a>
+                {% else %}
+                    <a href="{{ path('account_login') }}" class="nav-link {{ app.current_route starts with 'account_' ? 'active' : '' }}">
+                        Customer Account
+                    </a>
+                {% endif %}
+
+                <a href="{{ path('staff_scanner') }}" class="nav-admin-pill">
+                    Entrance Scanner
+                </a>
+                <a href="{{ path('admin_dashboard') }}" class="nav-admin-pill">
+                    Admin
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        {% block body %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <span>SwiftDesk QR Ticketing &middot; Symfony, MySQL &amp; Docker</span>
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+                <a href="{{ path('account_dashboard') }}">My Tickets &amp; History</a>
+                <a href="{{ path('staff_scanner') }}">Staff Entrance Scanner</a>
+                <a href="{{ path('admin_dashboard') }}">Admin Panel &rarr;</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
