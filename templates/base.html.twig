@@ -3,12 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SwiftDesk — QR Ticketing &amp; Customer Portal{% endblock %}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <title>{% block title %}SwiftDesk — Events &amp; QR Ticketing{% endblock %}</title>
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('swiftdesk_theme');
+                if (t && t !== 'sunset') document.documentElement.setAttribute('data-theme', t);
+                if (t === 'custom') {
+                    var c = localStorage.getItem('swiftdesk_custom_color');
+                    if (c) document.documentElement.style.setProperty('--custom-accent', c);
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=5">
+    <script src="{{ asset('js/ui.js') }}?v=5" defer></script>
 </head>
 <body>
     {% set menu_qr_ticket = current_qr_ticket() %}
-    {% set customer = current_customer() %}
+    {% set nav_customer = current_customer() %}
     <header class="site-header">
         <div class="container header-inner">
             <a href="{{ path('ticket_home') }}" class="brand">
@@ -21,34 +34,48 @@
             </a>
 
             <nav class="nav-links" aria-label="Main Menu" style="flex-wrap: wrap;">
-                <a href="{{ path('ticket_home') }}" class="nav-link {{ app.current_route == 'ticket_home' ? 'active' : '' }}">Home</a>
-                <a href="{{ path('ticket_new') }}" class="nav-link {{ app.current_route == 'ticket_new' ? 'active' : '' }}">Buy QR Ticket</a>
+                <a href="{{ path('ticket_home') }}" class="nav-link {{ app.current_route in ['ticket_home', 'event_show', 'ticket_new'] ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>Events</span>
+                </a>
+                <a href="{{ path('account_register') }}" class="nav-link {{ app.current_route == 'account_register' ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                    <span>Register Account</span>
+                </a>
+
+                {% if nav_customer and nav_customer.organizer %}
+                    <a href="{{ path('organizer_events_new') }}" class="btn btn-festival btn-sm">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>Create New Event</span>
+                    </a>
+                {% endif %}
 
                 {% if menu_qr_ticket %}
                     <a href="{{ path('festival_pass_show', {token: menu_qr_ticket.qrToken}) }}" class="btn btn-festival btn-sm">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/>
-                        </svg>
-                        See QR
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/></svg>
+                        <span>See QR</span>
                     </a>
                 {% endif %}
 
-                {% if customer %}
-                    <a href="{{ path('account_dashboard') }}" class="nav-link {{ app.current_route starts with 'account_' ? 'active' : '' }}">
-                        My Account ({{ customer.name }})
+                {% if nav_customer %}
+                    <a href="{{ path('account_dashboard') }}" class="btn btn-primary btn-sm">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <span>{{ nav_customer.organizer ? 'Organizer' : 'My Account' }} ({{ nav_customer.name }})</span>
                     </a>
                 {% else %}
-                    <a href="{{ path('account_login') }}" class="nav-link {{ app.current_route starts with 'account_' ? 'active' : '' }}">
-                        Customer Account
+                    <a href="{{ path('account_login') }}" class="btn btn-primary btn-sm">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                        <span>Sign In</span>
                     </a>
                 {% endif %}
 
-                <a href="{{ path('staff_scanner') }}" class="nav-admin-pill">
-                    Entrance Scanner
-                </a>
-                <a href="{{ path('admin_dashboard') }}" class="nav-admin-pill">
-                    Admin
-                </a>
+                {% if app.session.get('admin_role_authenticated') == true %}
+                    <a href="{{ path('admin_dashboard') }}" class="nav-admin-pill">
+                        Admin Panel
+                    </a>
+                {% endif %}
+
+                {{ include('_theme_switcher.html.twig') }}
             </nav>
         </div>
     </header>
@@ -59,11 +86,18 @@
 
     <footer class="site-footer">
         <div class="container footer-inner">
-            <span>SwiftDesk QR Ticketing &middot; Symfony, MySQL &amp; Docker</span>
+            <span>SwiftDesk Event Ticketing &middot; Symfony, MySQL &amp; Docker</span>
             <div style="display:flex;gap:1rem;flex-wrap:wrap;">
-                <a href="{{ path('account_dashboard') }}">My Tickets &amp; History</a>
-                <a href="{{ path('staff_scanner') }}">Staff Entrance Scanner</a>
-                <a href="{{ path('admin_dashboard') }}">Admin Panel &rarr;</a>
+                <a href="{{ path('ticket_home') }}">Events</a>
+                <a href="{{ path('account_register') }}">Register Account</a>
+                {% if nav_customer and nav_customer.organizer %}
+                    <a href="{{ path('organizer_events_new') }}">Create New Event</a>
+                    <a href="{{ path('account_dashboard') }}">Organizer Account</a>
+                {% elseif nav_customer %}
+                    <a href="{{ path('account_dashboard') }}">My Tickets &amp; History</a>
+                {% else %}
+                    <a href="{{ path('account_login') }}">Sign In</a>
+                {% endif %}
             </div>
         </div>
     </footer>

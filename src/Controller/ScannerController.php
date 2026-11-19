@@ -15,16 +15,50 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/scanner')]
 class ScannerController extends AbstractController
 {
-    private const SESSION_AUTH_KEY = 'admin_authenticated';
-    private const SESSION_TARGET_KEY = 'admin_target_path';
+    public function __construct(
+        private readonly string $adminAccessCode,
+    ) {
+    }
+
+    #[Route('/login', name: 'staff_scanner_login', methods: ['GET', 'POST'])]
+    public function login(Request $request): Response
+    {
+        if ($this->isStaffAuthenticated($request)) {
+            return $this->redirectToRoute('staff_scanner');
+        }
+
+        $error = null;
+        $statusCode = Response::HTTP_OK;
+
+        if ($request->isMethod('POST')) {
+            $token = (string) $request->request->get('_csrf_token', '');
+            $enteredCode = trim((string) $request->request->get('staff_code', ''));
+
+            if (!$this->isCsrfTokenValid('staff_scanner_login', $token)) {
+                $error = 'Your session expired. Please try again.';
+                $statusCode = Response::HTTP_BAD_REQUEST;
+            } elseif ($enteredCode === '' || !hash_equals($this->adminAccessCode, $enteredCode)) {
+                $error = 'Invalid entrance staff PIN.';
+                $statusCode = Response::HTTP_UNAUTHORIZED;
+            } else {
+                $session = $request->getSession();
+                $session->migrate(true);
+                $session->set(AdminController::SESSION_STAFF_KEY, true);
+
+                return $this->redirectToRoute('staff_scanner');
+            }
+        }
+
+        return $this->render('scanner/login.html.twig', [
+            'error' => $error,
+        ], new Response('', $statusCode));
+    }
 
     #[Route('', name: 'staff_scanner', methods: ['GET'])]
     public function index(Request $request, TicketRepository $ticketRepository): Response
     {
         if (!$this->isStaffAuthenticated($request)) {
-            $request->getSession()->set(self::SESSION_TARGET_KEY, $request->getRequestUri());
-
-            return $this->redirectToRoute('admin_login');
+            return $this->redirectToRoute('staff_scanner_login');
         }
 
         $recentTickets = array_slice($ticketRepository->findFiltered(), 0, 15);
@@ -44,9 +78,7 @@ class ScannerController extends AbstractController
         EntityManagerInterface $entityManager,
     ): Response {
         if (!$this->isStaffAuthenticated($request)) {
-            $request->getSession()->set(self::SESSION_TARGET_KEY, $this->generateUrl('staff_scanner'));
-
-            return $this->redirectToRoute('admin_login');
+            return $this->redirectToRoute('staff_scanner_login');
         }
 
         $csrfToken = (string) $request->request->get('_csrf_token', '');
@@ -152,6 +184,13 @@ class ScannerController extends AbstractController
 
     private function isStaffAuthenticated(Request $request): bool
     {
-        return $request->hasPreviousSession() && $request->getSession()->get(self::SESSION_AUTH_KEY) === true;
+        if (!$request->hasPreviousSession()) {
+            return false;
+        }
+
+        $session = $request->getSession();
+
+        return $session->get(AdminController::SESSION_STAFF_KEY) === true
+            || $session->get(AdminController::SESSION_ADMIN_KEY) === true;
     }
 }

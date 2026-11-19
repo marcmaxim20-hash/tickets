@@ -25,7 +25,7 @@
                         <span class="badge badge-unused"><span class="badge-dot"></span>Unused QR</span>
                     {% endif %}
                 </div>
-                <h1 class="detail-title">{{ ticket.title }}</h1>
+                <h1 class="detail-title">{{ ticket.title }} <span class="price-tag" style="font-size:0.95rem;vertical-align:middle;margin-left:0.4rem;">{{ ticket.formattedPrice }}</span></h1>
             </div>
         </div>
 
@@ -149,6 +149,23 @@
                             <span class="meta-label">Linked Customer Account</span>
                             <span class="meta-value">{{ ticket.customer.name }} (#{{ ticket.customer.id }})</span>
                         </li>
+                    {% endif %}
+                    {% if ticket.event %}
+                        <li>
+                            <span class="meta-label">Event &amp; Venue</span>
+                            <span class="meta-value">{{ ticket.event.title }} &mdash; {{ ticket.event.venue }}</span>
+                        </li>
+                        {% if ticket.event.location %}
+                            <li>
+                                <span class="meta-label">Event Location</span>
+                                <span class="meta-value">
+                                    {{ ticket.event.location }}
+                                    {% if ticket.event.mapsUrl %}
+                                        &middot; <a href="{{ ticket.event.mapsUrl }}" target="_blank" rel="noopener noreferrer">Maps &nearr;</a>
+                                    {% endif %}
+                                </span>
+                            </li>
+                        {% endif %}
                     {% endif %}
                     <li>
                         <span class="meta-label">Created At</span>

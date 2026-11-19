@@ -31,7 +31,10 @@ services:
       APP_ENV: dev
       APP_SECRET: f8b74e29c10a63d49518e2a7c4b9f012
       DATABASE_URL: "mysql://ticket_user:ticket_password@database:3306/ticketing_db?serverVersion=8.0&charset=utf8mb4"
+      ADMIN_USERNAME: "admin@swiftdesk.local"
+      ADMIN_PASSWORD: "Admin2026!"
       ADMIN_ACCESS_CODE: "1234"
+      ORGANIZER_REGISTRATION_CODE: "1111"
     ports:
       - "8080:80"
     volumes:

@@ -9,3 +9,6 @@
 /vendor/
 ###< symfony/framework-bundle ###
 /.idea/
+
+/public/uploads/events/*
+!/public/uploads/events/.gitkeep

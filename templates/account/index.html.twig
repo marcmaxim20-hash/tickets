@@ -13,11 +13,14 @@
 
     <div class="page-heading">
         <div>
-            <h1>{{ customer.name }}’s Account</h1>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.25rem;">
+                <h1 style="margin:0;">{{ customer.name }}’s Account</h1>
+                <span class="badge badge-resolved">Customer</span>
+            </div>
             <p>{{ customer.email }} &middot; Member since {{ customer.createdAt|date('M j, Y') }}</p>
         </div>
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
-            <a href="{{ path('ticket_new') }}" class="btn btn-festival">+ Buy New QR Ticket</a>
+            <a href="{{ path('ticket_home') }}#events-showcase" class="btn btn-festival">+ Browse Events &amp; Buy</a>
             <form method="post" action="{{ path('account_logout') }}" style="margin:0;">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('customer_logout') }}">
                 <button type="submit" class="btn btn-secondary">Sign Out</button>
@@ -25,10 +28,14 @@
         </div>
     </div>
 
-    <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="kpi-grid">
         <div class="kpi-card">
-            <div class="kpi-label"><span>Total Purchased</span></div>
+            <div class="kpi-label"><span>Total Tickets</span></div>
             <div class="kpi-value">{{ tickets|length }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label"><span>Total Spent</span></div>
+            <div class="kpi-value">{{ total_spent }}</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label">
@@ -57,11 +64,29 @@
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.35rem;">
                             <span class="ticket-id">#{{ ticket.id }}</span>
+                            <span class="price-tag">{{ ticket.formattedPrice }}</span>
                             <span class="badge badge-unused"><span class="badge-dot"></span>Unused</span>
                         </div>
-                        <div style="font-weight:700;font-size:0.96rem;margin-bottom:0.2rem;">{{ ticket.title }}</div>
-                        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.7rem;">
-                            Valid until {{ ticket.qrExpiresAt|date('M j, H:i') }}
+                        <div style="font-weight:700;font-size:0.96rem;margin-bottom:0.15rem;">
+                            {{ ticket.event ? ticket.event.title : ticket.title }}
+                        </div>
+                        <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.2rem;">
+                            {{ ticket.title }}{% if ticket.event %} &middot; {{ ticket.event.venue }}{% endif %}
+                        </div>
+                        {% if ticket.event and ticket.event.location %}
+                            <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.2rem;">
+                                <strong>Location:</strong> {{ ticket.event.location }}
+                                {% if ticket.event.mapsUrl %}
+                                    &middot; <a href="{{ ticket.event.mapsUrl }}" target="_blank" rel="noopener noreferrer">Maps &nearr;</a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        <div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:0.7rem;">
+                            {% if ticket.event %}
+                                {{ ticket.event.startDate|date('M j, H:i') }} &ndash; {{ ticket.event.endDate|date('M j, H:i') }}
+                            {% else %}
+                                Valid until {{ ticket.qrExpiresAt|date('M j, H:i') }}
+                            {% endif %}
                         </div>
                         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
                             <a href="{{ path('festival_pass_show', {token: ticket.qrToken}) }}" class="btn btn-primary btn-sm">Open QR</a>
@@ -77,26 +102,25 @@
         <div class="card-header">
             <div>
                 <h2 class="section-title">Purchase History</h2>
-                <p class="section-subtitle">Complete record of all tickets saved under your account in MySQL.</p>
+                <p class="section-subtitle">Private record of all events, seats, and prices purchased by your account.</p>
             </div>
         </div>
 
         {% if tickets is empty %}
             <div class="empty-state">
                 <h3>No tickets purchased yet</h3>
-                <p>Buy your first ticket to generate a unique QR code and see it in your account history.</p>
-                <a href="{{ path('ticket_new') }}" class="btn btn-festival">Buy QR Ticket</a>
+                <p>Choose an event on the main page to book your seat and view your QR code here.</p>
+                <a href="{{ path('ticket_home') }}#events-showcase" class="btn btn-festival">Explore Events</a>
             </div>
         {% else %}
             <div class="table-responsive">
                 <table class="ticket-table">
                     <thead>
                         <tr>
-                            <th>Order / Ticket</th>
-                            <th>Purchased On</th>
-                            <th>Unique QR Token</th>
+                            <th>Event &amp; Ticket Tier</th>
+                            <th>Price</th>
+                            <th>Event Dates</th>
                             <th>Entrance Scan Status</th>
-                            <th>Support Status</th>
                             <th style="text-align:right;">QR Pass</th>
                         </tr>
                     </thead>
@@ -104,14 +128,35 @@
                         {% for ticket in tickets %}
                             <tr>
                                 <td>
-                                    <span class="ticket-id">#{{ ticket.id }}</span>
-                                    <strong style="margin-left:0.4rem;">{{ ticket.title }}</strong>
-                                </td>
-                                <td style="white-space:nowrap;color:var(--text-muted);font-size:0.86rem;">
-                                    {{ ticket.createdAt|date('M j, Y H:i:s') }}
+                                    <div>
+                                        <span class="ticket-id">#{{ ticket.id }}</span>
+                                        <strong style="margin-left:0.35rem;">{{ ticket.event ? ticket.event.title : ticket.title }}</strong>
+                                    </div>
+                                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.15rem;">
+                                        {{ ticket.title }}
+                                        {% if ticket.event %}
+                                            &middot; {{ ticket.event.categoryLabel }} &middot; {{ ticket.event.venue }}
+                                        {% endif %}
+                                    </div>
+                                    {% if ticket.event and ticket.event.location %}
+                                        <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:0.15rem;">
+                                            Location: {{ ticket.event.location }}
+                                            {% if ticket.event.mapsUrl %}
+                                                &middot; <a href="{{ ticket.event.mapsUrl }}" target="_blank" rel="noopener noreferrer">Directions &nearr;</a>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
                                 </td>
                                 <td>
-                                    <code style="font-size:0.78rem;color:var(--text-muted);">{{ ticket.qrToken|slice(0, 12) }}…</code>
+                                    <span class="price-tag">{{ ticket.formattedPrice }}</span>
+                                </td>
+                                <td style="white-space:nowrap;color:var(--text-muted);font-size:0.84rem;">
+                                    {% if ticket.event %}
+                                        {{ ticket.event.startDate|date('M j, Y H:i') }}<br>
+                                        &rarr; {{ ticket.event.endDate|date('M j, Y H:i') }}
+                                    {% else %}
+                                        {{ ticket.createdAt|date('M j, Y H:i') }}
+                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if ticket.used %}
@@ -120,19 +165,13 @@
                                             Used on {{ ticket.usedAt|date('M j, H:i:s') }}
                                         </span>
                                     {% elseif ticket.qrExpired %}
-                                        <span class="badge badge-expired">Expired (24h passed)</span>
+                                        <span class="badge badge-expired">Expired</span>
                                     {% else %}
                                         <span class="badge badge-unused">
                                             <span class="badge-dot"></span>
-                                            Unused &middot; Valid until {{ ticket.qrExpiresAt|date('M j, H:i') }}
+                                            Unused &middot; Ready
                                         </span>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge badge-{{ ticket.status }}">
-                                        <span class="badge-dot"></span>
-                                        {{ ticket.statusLabel }}
-                                    </span>
                                 </td>
                                 <td style="text-align:right;white-space:nowrap;">
                                     {% if ticket.qrToken %}

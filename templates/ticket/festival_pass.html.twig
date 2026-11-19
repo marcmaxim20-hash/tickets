@@ -5,26 +5,32 @@
 {% block body %}
 <div class="container-narrow">
     <div class="breadcrumb" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
-        <a href="{{ path('ticket_home') }}">&larr; Back to main page</a>
+        <a href="{{ path('ticket_home') }}">&larr; Back to Events</a>
         {% if current_customer() %}
             <a href="{{ path('account_dashboard') }}">Go to My Account &amp; History &rarr;</a>
         {% endif %}
     </div>
 
-    {% for message in app.flashes('success') %}
-        <div class="alert alert-success" role="status">{{ message }}</div>
-    {% endfor %}
-    {% for message in app.flashes('warning') %}
-        <div class="alert alert-warning" role="alert">{{ message }}</div>
-    {% endfor %}
-
     <div class="pass-card">
         <div class="pass-banner">
             <span class="admin-badge" style="background: rgba(255,255,255,0.18); color: #ffffff; border-color: rgba(255,255,255,0.3);">
-                Single-Entry QR Ticket &middot; #{{ ticket.id }}
+                {% if ticket.event %}{{ ticket.event.categoryLabel }} &middot; {% endif %}Ticket #{{ ticket.id }}
             </span>
-            <h1>{{ ticket.title }}</h1>
-            <p>Holder: <strong>{{ ticket.contact }}</strong></p>
+            <h1>{{ ticket.event ? ticket.event.title : ticket.title }}</h1>
+            {% if ticket.event %}
+                <p style="margin-bottom:0.3rem;">
+                    {{ ticket.event.venue }} &middot; {{ ticket.event.startDate|date('M j, Y H:i') }} &ndash; {{ ticket.event.endDate|date('M j, Y H:i') }}
+                </p>
+                {% if ticket.event.location %}
+                    <p style="margin-bottom:0.35rem;">
+                        <strong>Where to go:</strong> {{ ticket.event.location }}
+                        {% if ticket.event.mapsUrl %}
+                            &middot; <a href="{{ ticket.event.mapsUrl }}" target="_blank" rel="noopener noreferrer" style="color:#ffffff;font-weight:700;text-decoration:underline;">Open in Maps &nearr;</a>
+                        {% endif %}
+                    </p>
+                {% endif %}
+            {% endif %}
+            <p>Tier: <strong>{{ ticket.title }} ({{ ticket.formattedPrice }})</strong> &middot; Holder: <strong>{{ ticket.contact }}</strong></p>
         </div>
 
         <div class="qr-stage">
@@ -37,59 +43,33 @@
                     <span>ALREADY USED AT ENTRANCE &middot; Scanned on {{ ticket.usedAt|date('M j, Y \\a\\t H:i:s') }}</span>
                 </div>
             {% elseif is_qr_valid %}
-                <div class="qr-timer-pill qr-timer-valid" id="qr-countdown-box" data-remaining="{{ remaining_seconds }}">
+                <div class="qr-timer-pill qr-timer-valid">
                     <span class="badge-dot" style="background: var(--status-resolved-dot);"></span>
-                    <span id="qr-countdown-text">UNUSED &middot; Valid for 1 entrance scan until {{ ticket.qrExpiresAt|date('M j, Y \\a\\t H:i:s') }}</span>
+                    <span>UNUSED &middot; Valid for 1 entrance scan until {{ ticket.qrExpiresAt|date('M j, Y H:i') }}</span>
                 </div>
             {% else %}
                 <div class="qr-timer-pill qr-timer-expired">
-                    <span>EXPIRED &middot; 24-hour window ended on {{ ticket.qrExpiresAt|date('M j, Y \\a\\t H:i:s') }}</span>
+                    <span>EXPIRED &middot; Ended on {{ ticket.qrExpiresAt|date('M j, Y H:i') }}</span>
                 </div>
             {% endif %}
 
-            <p style="margin: 1rem auto 1.5rem; max-width: 460px; text-align: center; color: var(--text-secondary); font-size: 0.9rem;">
-                Unique QR Token: <code>{{ ticket.qrToken }}</code><br>
-                Present this QR code to staff at the entrance. Once scanned, it is marked as <strong>USED</strong> and cannot be used a second time.
+            <p style="margin: 1rem auto 1.5rem; max-width: 480px; text-align: center; color: var(--text-secondary); font-size: 0.9rem;">
+                Unique QR Token: <code>{{ ticket.qrToken }}</code>
+                <button type="button" class="copy-token-btn" data-copy-text="{{ ticket.qrToken }}">Copy</button><br>
+                Present this QR code to staff at the entrance. Once scanned, it is marked as <strong>USED</strong> and cannot be used twice.
             </p>
 
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center;">
-                <a href="{{ path('festival_door_scan', {token: ticket.qrToken}) }}" class="btn btn-festival btn-lg">
-                    Open Entrance Check-In &rarr;
-                </a>
-                <a href="{{ path('festival_pass_qr_png', {token: ticket.qrToken}) }}" download="festival-ticket-{{ ticket.id }}-qr.png" class="btn btn-secondary btn-lg">
+                <a href="{{ path('festival_pass_qr_png', {token: ticket.qrToken}) }}" download="festival-ticket-{{ ticket.id }}-qr.png" class="btn btn-festival btn-lg">
                     Download QR (.PNG)
                 </a>
+                {% if app.session.get('admin_role_authenticated') == true or app.session.get('staff_scanner_authenticated') == true %}
+                    <a href="{{ path('festival_door_scan', {token: ticket.qrToken}) }}" class="btn btn-secondary btn-lg">
+                        Open Entrance Check-In &rarr;
+                    </a>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
-
-{% if is_qr_valid and not ticket.used %}
-<script>
-(() => {
-    const box = document.getElementById('qr-countdown-box');
-    const textEl = document.getElementById('qr-countdown-text');
-    if (!box || !textEl) return;
-
-    let secondsLeft = parseInt(box.getAttribute('data-remaining') || '0', 10);
-    const render = () => {
-        if (secondsLeft <= 0) {
-            box.className = 'qr-timer-pill qr-timer-expired';
-            textEl.textContent = 'EXPIRED — 24-hour validity window has ended';
-            return;
-        }
-        const hrs = Math.floor(secondsLeft / 3600);
-        const mins = Math.floor((secondsLeft % 3600) / 60);
-        const secs = secondsLeft % 60;
-        const pad = (n) => String(n).padStart(2, '0');
-        textEl.textContent = `UNUSED — Valid for 1 scan (expires in ${pad(hrs)}h ${pad(mins)}m ${pad(secs)}s)`;
-    };
-    render();
-    setInterval(() => {
-        secondsLeft -= 1;
-        render();
-    }, 1000);
-})();
-</script>
-{% endif %}
 {% endblock %}

@@ -43,7 +43,8 @@ if [ -n "$DATABASE_URL" ] && [ -f "bin/console" ]; then
 fi
 
 # Ensure Symfony cache, logs, and sessions directories are writable by Apache (www-data)
-mkdir -p var/cache var/log var/sessions
+mkdir -p var/cache var/log var/sessions public/uploads/events
+chown -R www-data:www-data public/uploads
 chown -R www-data:www-data var
 
 echo "[entrypoint] Starting Apache web server..."

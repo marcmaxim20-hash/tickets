@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Entity\Customer;
 use App\Entity\Ticket;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\Mailer;
@@ -37,7 +38,7 @@ class TicketConfirmationMailer
     /**
      * @return array{status: string, error?: string}
      */
-    public function sendTicketConfirmation(Ticket $ticket): array
+    public function sendFestivalTicketConfirmation(Ticket $ticket, string $doorUrl, string $passUrl): array
     {
         $recipient = trim($ticket->getContact());
         $mailer = $this->resolveMailer();
@@ -47,31 +48,56 @@ class TicketConfirmationMailer
         }
 
         $fromEmail = $this->resolveFromAddress();
-        $entryCode = trim($this->showEntryCode) !== '' ? trim($this->showEntryCode) : '1212';
+        $expiresAtFormatted = $ticket->getQrExpiresAt()?->format('M j, Y \a\t H:i') ?? 'Event End';
+        $eventName = $ticket->getEvent()?->getTitle() ?? $ticket->getTitle();
+        $eventVenue = $ticket->getEvent()?->getVenue() ?? '';
+        $eventLocation = $ticket->getEvent()?->getLocation() ?? '';
+
+        $qrPngBytes = $this->qrCodeGenerator->generatePng($doorUrl, 8, 3);
+        $qrPart = (new DataPart($qrPngBytes, 'festival-door-qr.png', 'image/png'))->asInline();
+        $qrCid = $qrPart->getContentId();
+
+        $whereLine = '';
+        if ($eventVenue !== '' || $eventLocation !== '') {
+            $whereLine = sprintf(
+                "Where to go: %s%s\n",
+                $eventVenue,
+                ($eventLocation !== '' && $eventLocation !== $eventVenue) ? ' — ' . $eventLocation : ''
+            );
+        }
 
         $plainText = sprintf(
-            "You bought the ticket for the show! The code of entry is %s.\n\n"
-            . "Ticket Details:\n"
-            . "- Ticket ID: #%d\n"
-            . "- Title: %s\n"
-            . "- Description: %s\n",
-            $entryCode,
-            (int) $ticket->getId(),
+            "You bought the ticket for %s!\n"
+            . "Event: %s\n"
+            . "%s"
+            . "Tier: %s (%s)\n"
+            . "Valid until: %s\n\n"
+            . "View your ticket in your account: %s\n",
+            $ticket->getFormattedPrice(),
+            $eventName,
+            $whereLine,
             $ticket->getTitle(),
-            $ticket->getDescription()
+            $ticket->getFormattedPrice(),
+            $expiresAtFormatted,
+            $passUrl
         );
 
-        $htmlBody = $this->twig->render('emails/ticket_confirmation.html.twig', [
+        $htmlBody = $this->twig->render('emails/festival_ticket_confirmation.html.twig', [
             'ticket' => $ticket,
-            'entry_code' => $entryCode,
+            'qr_cid' => $qrCid,
+            'door_url' => $doorUrl,
+            'pass_url' => $passUrl,
+            'expires_at' => $expiresAtFormatted,
         ]);
 
         $email = (new Email())
             ->from(new Address($fromEmail, 'SwiftDesk Tickets'))
             ->to($recipient)
-            ->subject(sprintf('Your Show Ticket (#%d) — Code of Entry: %s', (int) $ticket->getId(), $entryCode))
+            ->subject(sprintf('Your Ticket (#%d) — %s (%s)', (int) $ticket->getId(), $eventName, $ticket->getFormattedPrice()))
             ->text($plainText)
-            ->html($htmlBody);
+            ->html($htmlBody)
+            ->addPart($qrPart)
+            ->attach($qrPngBytes, sprintf('ticket-%d-qr.png', (int) $ticket->getId()), 'image/png');
 
         try {
             $mailer->send($email);
@@ -88,55 +114,31 @@ class TicketConfirmationMailer
     /**
      * @return array{status: string, error?: string}
      */
-    public function sendFestivalTicketConfirmation(Ticket $ticket, string $doorUrl, string $passUrl): array
+    public function sendPasswordResetEmail(Customer $customer, string $resetUrl): array
     {
-        $recipient = trim($ticket->getContact());
         $mailer = $this->resolveMailer();
-
         if ($mailer === null) {
             return ['status' => self::STATUS_NOT_CONFIGURED];
         }
 
         $fromEmail = $this->resolveFromAddress();
-        $expiresAtFormatted = $ticket->getQrExpiresAt()?->format('M j, Y \a\t H:i:s') ?? '24 hours from purchase';
-
-        $qrPngBytes = $this->qrCodeGenerator->generatePng($doorUrl, 8, 3);
-        $qrPart = (new DataPart($qrPngBytes, 'festival-door-qr.png', 'image/png'))->asInline();
-        $qrCid = $qrPart->getContentId();
-
         $plainText = sprintf(
-            "You bought the ticket for the festival! Scan the attached QR code to open the festival door.\n"
-            . "IMPORTANT: This QR code lasts only 24 hours (valid until %s).\n\n"
-            . "Festival Door Scanner Link: %s\n"
-            . "Digital Pass Page: %s\n\n"
-            . "Ticket Details:\n"
-            . "- Ticket ID: #%d\n"
-            . "- Title: %s\n"
-            . "- Description: %s\n",
-            $expiresAtFormatted,
-            $doorUrl,
-            $passUrl,
-            (int) $ticket->getId(),
-            $ticket->getTitle(),
-            $ticket->getDescription()
+            "Hi %s,\n\nClick the link below to reset your SwiftDesk account password (valid for 1 hour):\n%s\n\nIf you did not request this, you can ignore this email.\n",
+            $customer->getName(),
+            $resetUrl
         );
 
-        $htmlBody = $this->twig->render('emails/festival_ticket_confirmation.html.twig', [
-            'ticket' => $ticket,
-            'qr_cid' => $qrCid,
-            'door_url' => $doorUrl,
-            'pass_url' => $passUrl,
-            'expires_at' => $expiresAtFormatted,
+        $htmlBody = $this->twig->render('emails/password_reset.html.twig', [
+            'customer' => $customer,
+            'reset_url' => $resetUrl,
         ]);
 
         $email = (new Email())
-            ->from(new Address($fromEmail, 'SwiftDesk Festival Pass'))
-            ->to($recipient)
-            ->subject(sprintf('Your Festival Door QR Ticket (#%d) — Valid for 24 Hours', (int) $ticket->getId()))
+            ->from(new Address($fromEmail, 'SwiftDesk Accounts'))
+            ->to($customer->getEmail())
+            ->subject('Recover Your SwiftDesk Password')
             ->text($plainText)
-            ->html($htmlBody)
-            ->addPart($qrPart)
-            ->attach($qrPngBytes, sprintf('festival-ticket-%d-qr.png', (int) $ticket->getId()), 'image/png');
+            ->html($htmlBody);
 
         try {
             $mailer->send($email);

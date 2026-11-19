@@ -45,42 +45,20 @@ class QrMenuExtension extends AbstractExtension
         return $this->qrCodeGenerator->generateSvg($baseUrl . '/festival/door/' . $token, $size);
     }
 
+    /**
+     * Strictly returns a QR ticket ONLY when signed into the owning Customer Account.
+     */
     public function getCurrentQrTicket(): ?Ticket
     {
-        $request = $this->requestStack->getCurrentRequest();
-        if ($request === null) {
+        $customer = $this->customerAuth->getCurrentCustomer();
+        if ($customer === null || $customer->isOrganizer()) {
             return null;
         }
 
-        $token = null;
-        if ($request->hasPreviousSession()) {
-            $sessionToken = $request->getSession()->get('latest_qr_token');
-            if (is_string($sessionToken) && $sessionToken !== '') {
-                $token = $sessionToken;
-            }
-        }
-
-        if ($token === null) {
-            $cookieToken = $request->cookies->get('latest_qr_token');
-            if (is_string($cookieToken) && $cookieToken !== '') {
-                $token = $cookieToken;
-            }
-        }
-
-        if ($token !== null) {
-            $ticket = $this->ticketRepository->findOneByQrToken($token);
-            if ($ticket !== null && $ticket->isFestivalTicket()) {
+        $customerTickets = $this->ticketRepository->findForCustomer($customer);
+        foreach ($customerTickets as $ticket) {
+            if ($ticket->getQrToken() !== null) {
                 return $ticket;
-            }
-        }
-
-        $customer = $this->customerAuth->getCurrentCustomer();
-        if ($customer !== null) {
-            $customerTickets = $this->ticketRepository->findForCustomer($customer);
-            foreach ($customerTickets as $t) {
-                if ($t->getQrToken() !== null) {
-                    return $t;
-                }
             }
         }
 

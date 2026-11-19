@@ -27,4 +27,21 @@ class CustomerRepository extends ServiceEntityRepository
 
         return $this->findOneBy(['email' => $normalized]);
     }
+
+    public function findOneByValidResetToken(string $rawToken): ?Customer
+    {
+        $trimmed = trim($rawToken);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $tokenHash = hash('sha256', $trimmed);
+        $customer = $this->findOneBy(['resetTokenHash' => $tokenHash]);
+
+        if ($customer === null || !$customer->isResetTokenValid()) {
+            return null;
+        }
+
+        return $customer;
+    }
 }

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312e81"/>
+      <stop offset="50%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#fg)"/>
+  <circle cx="400" cy="240" r="115" fill="#fde68a" opacity="0.28"/>
+  <circle cx="400" cy="240" r="78" fill="#fef3c7" opacity="0.45"/>
+  <polygon points="0,450 0,320 150,250 310,330 460,235 630,315 800,260 800,450" fill="#1e1b4b" opacity="0.72"/>
+  <polygon points="320,360 400,205 480,360" fill="#0f172a"/>
+  <line x1="400" y1="205" x2="210" y2="60" stroke="#fef08a" stroke-width="3" opacity="0.45"/>
+  <line x1="400" y1="205" x2="590" y2="60" stroke="#fef08a" stroke-width="3" opacity="0.45"/>
+  <rect y="355" width="800" height="95" fill="#0f172a"/>
+  <text x="400" y="408" text-anchor="middle" fill="#ffffff" font-family="system-ui,sans-serif" font-size="24" font-weight="800" letter-spacing="3">AURORA OPEN-AIR FESTIVAL</text>
+</svg>

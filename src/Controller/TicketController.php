@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\Event;
 use App\Entity\Ticket;
 use App\Form\TicketType;
-use App\Repository\CustomerRepository;
+use App\Repository\EventRepository;
 use App\Repository\TicketRepository;
 use App\Service\CustomerAuth;
 use App\Service\QrCodeGenerator;
+use App\Service\TicketCatalog;
 use App\Service\TicketConfirmationMailer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -28,28 +29,39 @@ class TicketController extends AbstractController
     #[Route('/', name: 'ticket_home', methods: ['GET'])]
     public function index(
         Request $request,
-        TicketRepository $ticketRepository,
+        EventRepository $eventRepository,
         CustomerAuth $customerAuth,
+        TicketRepository $ticketRepository,
     ): Response {
-        $customer = $customerAuth->getCurrentCustomer();
-        if ($customer !== null) {
-            $myRecentTickets = array_slice($ticketRepository->findForCustomer($customer), 0, 10);
-        } else {
-            $recentIds = [];
-            if ($request->hasPreviousSession()) {
-                $storedIds = $request->getSession()->get('submitted_ticket_ids', []);
-                if (is_array($storedIds)) {
-                    $recentIds = array_values(array_map('intval', $storedIds));
-                }
-            }
-            $myRecentTickets = $ticketRepository->findByIdsOrdered($recentIds);
-        }
+        $categoryParam = (string) $request->query->get('category', '');
+        $activeCategory = array_key_exists($categoryParam, Event::getAvailableCategories()) ? $categoryParam : null;
 
-        $stats = $ticketRepository->getStatusCounts();
+        $events = $eventRepository->findFiltered($activeCategory);
+        $customer = $customerAuth->getCurrentCustomer();
+        $myTicketsCount = $customer !== null ? count($ticketRepository->findForCustomer($customer)) : 0;
 
         return $this->render('ticket/index.html.twig', [
-            'recent_tickets' => $myRecentTickets,
-            'stats' => $stats,
+            'events' => $events,
+            'categories' => Event::getAvailableCategories(),
+            'active_category' => $activeCategory,
+            'my_tickets_count' => $myTicketsCount,
+        ]);
+    }
+
+    #[Route('/events/{id}', name: 'event_show', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function showEvent(
+        int $id,
+        EventRepository $eventRepository,
+        TicketCatalog $ticketCatalog,
+    ): Response {
+        $event = $eventRepository->findWithSiteSeats($id);
+        if ($event === null) {
+            throw $this->createNotFoundException('Event not found.');
+        }
+
+        return $this->render('ticket/event_show.html.twig', [
+            'event' => $event,
+            'tiers' => $ticketCatalog->getTiers(),
         ]);
     }
 
@@ -57,39 +69,107 @@ class TicketController extends AbstractController
     public function create(
         Request $request,
         EntityManagerInterface $entityManager,
+        EventRepository $eventRepository,
         TicketRepository $ticketRepository,
-        CustomerRepository $customerRepository,
         CustomerAuth $customerAuth,
+        TicketCatalog $ticketCatalog,
         TicketConfirmationMailer $confirmationMailer,
     ): Response {
         $loggedInCustomer = $customerAuth->getCurrentCustomer();
-        $ticket = new Ticket();
+        if ($loggedInCustomer === null) {
+            $request->getSession()->set(AccountController::SESSION_TARGET_PATH, $request->getRequestUri());
+            $this->addFlash('warning', 'Please sign in or create a Customer account so only your account can buy and view your tickets.');
 
-        if (!$request->isMethod('POST') && $loggedInCustomer !== null) {
-            $ticket->setContact($loggedInCustomer->getEmail());
+            return $this->redirectToRoute('account_login');
+        }
+
+        if ($loggedInCustomer->isOrganizer()) {
+            $this->addFlash('warning', 'Organizer accounts can only create new events. Please sign in with a Customer account to buy tickets.');
+
+            $requestedEventId = (int) ($request->request->get('event_id') ?: $request->query->get('event', 0));
+            if ($requestedEventId > 0) {
+                return $this->redirectToRoute('event_show', ['id' => $requestedEventId]);
+            }
+
+            return $this->redirectToRoute('account_dashboard');
+        }
+
+        $allEvents = $eventRepository->findFiltered();
+        if ($allEvents === []) {
+            $this->addFlash('warning', 'No events are currently scheduled. An Organizer or Admin needs to create an event first.');
+
+            return $this->redirectToRoute('ticket_home');
+        }
+
+        $requestedEventId = (int) ($request->request->get('event_id') ?: $request->query->get('event', 0));
+        $selectedEvent = $requestedEventId > 0 ? $eventRepository->find($requestedEventId) : null;
+        if ($selectedEvent === null) {
+            $selectedEvent = $allEvents[0];
+        }
+
+        $ticket = new Ticket();
+        $ticket->setContact($loggedInCustomer->getEmail());
+        $ticket->setEvent($selectedEvent);
+
+        if (!$request->isMethod('POST')) {
+            $requestedTier = (string) $request->query->get('tier', TicketCatalog::DEFAULT_TIER);
+            if ($ticketCatalog->hasTier($requestedTier)) {
+                $ticket->setTierKey($requestedTier);
+            }
         }
 
         $form = $this->createForm(TicketType::class, $ticket);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $uniqueToken = $ticketRepository->generateUniqueQrToken();
-            $ticket->setTitle('Festival Door QR Pass');
-            $ticket->setDescription(sprintf(
-                'Single-entry 24-hour QR pass for %s.',
-                $ticket->getContact()
-            ));
-            $ticket->initializeFestivalQr($uniqueToken);
-
-            $ownerAccount = $loggedInCustomer ?? $customerRepository->findOneByEmail($ticket->getContact());
-            if ($ownerAccount !== null) {
-                $ticket->setCustomer($ownerAccount);
+            if ($selectedEvent->getId() === null) {
+                throw $this->createNotFoundException('Selected event not found.');
             }
 
-            $entityManager->persist($ticket);
-            $entityManager->flush();
+            $conn = $entityManager->getConnection();
+            $conn->beginTransaction();
+            try {
+                if (!$eventRepository->hasAvailableSeatForUpdate($selectedEvent->getId())) {
+                    $conn->rollBack();
+                    $this->addFlash(
+                        'warning',
+                        sprintf('Sorry, "%s" at %s is completely sold out (0 seats left).', $selectedEvent->getTitle(), $selectedEvent->getVenue())
+                    );
 
-            $this->rememberTicketInSession($request, $ticket);
+                    return $this->redirectToRoute('event_show', ['id' => $selectedEvent->getId()]);
+                }
+
+                $selectedTier = $ticketCatalog->getTier($ticket->getTierKey());
+                $uniqueToken = $ticketRepository->generateUniqueQrToken();
+
+                $ticket->setEvent($selectedEvent);
+                $ticket->setCustomer($loggedInCustomer);
+                $ticket->setContact($loggedInCustomer->getEmail());
+                $ticket->setTierKey($selectedTier['key']);
+                $ticket->setPriceCents($selectedTier['price_cents']);
+                $ticket->setTitle($selectedTier['name']);
+                $locationSuffix = $selectedEvent->getLocation() !== ''
+                    ? ' (' . $selectedEvent->getLocation() . ')'
+                    : '';
+                $ticket->setDescription(sprintf(
+                    '%s — %s (%s) at %s%s',
+                    $selectedEvent->getTitle(),
+                    $selectedTier['name'],
+                    $selectedTier['price_display'],
+                    $selectedEvent->getVenue(),
+                    $locationSuffix
+                ));
+                $ticket->initializeFestivalQr($uniqueToken);
+
+                $entityManager->persist($ticket);
+                $entityManager->flush();
+                $conn->commit();
+            } catch (\Throwable $e) {
+                if ($conn->isTransactionActive()) {
+                    $conn->rollBack();
+                }
+                throw $e;
+            }
 
             $baseUrl = $request->getSchemeAndHttpHost();
             $doorUrl = $baseUrl . $this->generateUrl('festival_door_scan', ['token' => $ticket->getQrToken()]);
@@ -97,64 +177,55 @@ class TicketController extends AbstractController
 
             $mailResult = $confirmationMailer->sendFestivalTicketConfirmation($ticket, $doorUrl, $passUrl);
 
-            if ($mailResult['status'] === TicketConfirmationMailer::STATUS_SENT) {
-                $this->addFlash(
-                    'success',
-                    sprintf(
-                        'Ticket #%d purchased with a unique QR code! Click "See QR" in the main menu (or check your Customer Account) — we also emailed it to %s!',
-                        $ticket->getId(),
-                        $ticket->getContact()
-                    )
-                );
-            } elseif ($mailResult['status'] === TicketConfirmationMailer::STATUS_NOT_CONFIGURED) {
-                $this->addFlash(
-                    'success',
-                    sprintf(
-                        'Ticket #%d purchased and saved in MySQL! Click "See QR" in the main menu to open your unique QR code.',
-                        $ticket->getId()
-                    )
-                );
+            if ($mailResult['status'] === TicketConfirmationMailer::STATUS_FAILED) {
                 $this->addFlash(
                     'warning',
-                    sprintf(
-                        'Email to %s was not sent yet because SMTP_PASSWORD is still set to the placeholder in .env.',
-                        $ticket->getContact()
-                    )
-                );
-            } else {
-                $this->addFlash(
-                    'success',
-                    sprintf(
-                        'Ticket #%d purchased and saved in MySQL! Click "See QR" in the main menu to open your unique QR code.',
-                        $ticket->getId()
-                    )
-                );
-                $this->addFlash(
-                    'warning',
-                    sprintf(
-                        'Could not email QR code to %s (%s), but your QR code is saved in your account and in "See QR" above.',
-                        $ticket->getContact(),
-                        $mailResult['error'] ?? 'SMTP connection error'
-                    )
+                    sprintf('Your ticket is saved in your account, though emailing %s failed (%s).', $ticket->getContact(), $mailResult['error'] ?? 'SMTP error')
                 );
             }
 
-            $response = $this->redirectToRoute($loggedInCustomer !== null ? 'account_dashboard' : 'ticket_home');
-            if ($ticket->getQrToken() !== null) {
-                $response->headers->setCookie(
-                    Cookie::create('latest_qr_token')
-                        ->withValue($ticket->getQrToken())
-                        ->withExpires(new \DateTimeImmutable('+7 days'))
-                        ->withPath('/')
-                        ->withSameSite(Cookie::SAMESITE_LAX)
-                );
-            }
-
-            return $response;
+            return $this->redirectToRoute('ticket_purchased_confirmation', ['id' => $ticket->getId()]);
         }
 
         return $this->render('ticket/new.html.twig', [
             'form' => $form,
+            'tiers' => $ticketCatalog->getTiers(),
+            'selected_event' => $selectedEvent,
+            'all_events' => $allEvents,
+            'customer' => $loggedInCustomer,
+        ]);
+    }
+
+    #[Route('/account/tickets/{id}/confirmed', name: 'ticket_purchased_confirmation', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function confirmed(
+        int $id,
+        Request $request,
+        TicketRepository $ticketRepository,
+        CustomerAuth $customerAuth,
+        QrCodeGenerator $qrCodeGenerator,
+    ): Response {
+        $customer = $customerAuth->getCurrentCustomer();
+        if ($customer === null) {
+            $request->getSession()->set(AccountController::SESSION_TARGET_PATH, $request->getRequestUri());
+
+            return $this->redirectToRoute('account_login');
+        }
+
+        $ticket = $ticketRepository->find($id);
+        if ($ticket === null) {
+            throw $this->createNotFoundException('Ticket not found.');
+        }
+
+        if (!$ticket->isOwnedBy($customer)) {
+            throw $this->createAccessDeniedException('Only your own account can view tickets you bought.');
+        }
+
+        $doorUrl = $request->getSchemeAndHttpHost() . $this->generateUrl('festival_door_scan', ['token' => $ticket->getQrToken()]);
+        $qrSvg = $qrCodeGenerator->generateSvg($doorUrl, 220);
+
+        return $this->render('ticket/confirmed.html.twig', [
+            'ticket' => $ticket,
+            'qr_svg' => $qrSvg,
         ]);
     }
 
@@ -169,11 +240,27 @@ class TicketController extends AbstractController
         string $token,
         Request $request,
         TicketRepository $ticketRepository,
+        CustomerAuth $customerAuth,
         QrCodeGenerator $qrCodeGenerator,
     ): Response {
         $ticket = $ticketRepository->findOneByQrToken($token);
         if ($ticket === null || !$ticket->isFestivalTicket()) {
             throw $this->createNotFoundException('Festival pass QR token was not found.');
+        }
+
+        $isStaff = $this->hasStaffOrAdminSession($request);
+        $customer = $customerAuth->getCurrentCustomer();
+
+        if (!$isStaff) {
+            if ($customer === null) {
+                $request->getSession()->set(AccountController::SESSION_TARGET_PATH, $request->getRequestUri());
+                $this->addFlash('warning', 'Please sign in to your account to view your ticket QR code.');
+
+                return $this->redirectToRoute('account_login');
+            }
+            if (!$ticket->isOwnedBy($customer)) {
+                throw $this->createAccessDeniedException('Only the customer account that bought this ticket can view it.');
+            }
         }
 
         $doorUrl = $request->getSchemeAndHttpHost() . $this->generateUrl('festival_door_scan', ['token' => $ticket->getQrToken()]);
@@ -193,11 +280,26 @@ class TicketController extends AbstractController
         string $token,
         Request $request,
         TicketRepository $ticketRepository,
+        CustomerAuth $customerAuth,
         QrCodeGenerator $qrCodeGenerator,
     ): Response {
         $ticket = $ticketRepository->findOneByQrToken($token);
         if ($ticket === null || !$ticket->isFestivalTicket()) {
             throw $this->createNotFoundException('Festival pass QR token was not found.');
+        }
+
+        $isStaff = $this->hasStaffOrAdminSession($request);
+        $customer = $customerAuth->getCurrentCustomer();
+
+        if (!$isStaff) {
+            if ($customer === null) {
+                $request->getSession()->set(AccountController::SESSION_TARGET_PATH, $request->getRequestUri());
+
+                return $this->redirectToRoute('account_login');
+            }
+            if (!$ticket->isOwnedBy($customer)) {
+                throw $this->createAccessDeniedException('Only the customer account that bought this ticket can download its QR code.');
+            }
         }
 
         $doorUrl = $request->getSchemeAndHttpHost() . $this->generateUrl('festival_door_scan', ['token' => $ticket->getQrToken()]);
@@ -220,7 +322,7 @@ class TicketController extends AbstractController
             throw $this->createNotFoundException('Invalid QR code — no matching festival ticket found.');
         }
 
-        $isStaff = $request->hasPreviousSession() && $request->getSession()->get('admin_authenticated') === true;
+        $isStaff = $this->hasStaffOrAdminSession($request);
 
         if ($ticket->isUsed()) {
             $state = 'already_used';
@@ -255,7 +357,7 @@ class TicketController extends AbstractController
         }
 
         $session = $request->getSession();
-        $isStaff = $session->get('admin_authenticated') === true;
+        $isStaff = $this->hasStaffOrAdminSession($request);
 
         if (!$this->isCsrfTokenValid('door_checkin_' . $ticket->getId(), (string) $request->request->get('_csrf_token', ''))) {
             return $this->redirectToRoute('festival_door_scan', ['token' => $token]);
@@ -268,11 +370,11 @@ class TicketController extends AbstractController
                     'ticket' => $ticket,
                     'door_state' => $ticket->isUsed() ? 'already_used' : ($ticket->isQrExpired() ? 'expired' : 'ready_to_scan'),
                     'is_staff' => false,
-                    'staff_error' => 'Invalid staff code. Enter 1234 to authorize entrance check-in.',
+                    'staff_error' => 'Invalid staff PIN. Only authorized gate staff can check in tickets.',
                     'remaining_seconds' => $ticket->getRemainingQrSeconds(),
                 ], new Response('', Response::HTTP_UNAUTHORIZED));
             }
-            $session->set('admin_authenticated', true);
+            $session->set(AdminController::SESSION_STAFF_KEY, true);
             $isStaff = true;
         }
 
@@ -319,24 +421,15 @@ class TicketController extends AbstractController
         ], new Response('', Response::HTTP_CONFLICT));
     }
 
-    private function rememberTicketInSession(Request $request, Ticket $ticket): void
+    private function hasStaffOrAdminSession(Request $request): bool
     {
-        if ($ticket->getId() === null) {
-            return;
+        if (!$request->hasPreviousSession()) {
+            return false;
         }
 
         $session = $request->getSession();
-        if ($ticket->getQrToken() !== null) {
-            $session->set('latest_qr_token', $ticket->getQrToken());
-        }
 
-        $submittedIds = $session->get('submitted_ticket_ids', []);
-        if (!is_array($submittedIds)) {
-            $submittedIds = [];
-        }
-
-        array_unshift($submittedIds, $ticket->getId());
-        $submittedIds = array_slice(array_values(array_unique($submittedIds)), 0, 10);
-        $session->set('submitted_ticket_ids', $submittedIds);
+        return $session->get(AdminController::SESSION_ADMIN_KEY) === true
+            || $session->get(AdminController::SESSION_STAFF_KEY) === true;
     }
 }

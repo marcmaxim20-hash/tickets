@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\Ticket;
+use App\Repository\EventRepository;
 use App\Repository\TicketRepository;
 use App\Service\QrCodeGenerator;
 use Doctrine\ORM\EntityManagerInterface;
@@ -16,11 +17,13 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/admin')]
 class AdminController extends AbstractController
 {
-    private const SESSION_AUTH_KEY = 'admin_authenticated';
+    public const SESSION_ADMIN_KEY = 'admin_role_authenticated';
+    public const SESSION_STAFF_KEY = 'staff_scanner_authenticated';
     private const SESSION_TARGET_KEY = 'admin_target_path';
 
     public function __construct(
-        private readonly string $adminAccessCode,
+        private readonly string $adminUsername,
+        private readonly string $adminPassword,
     ) {
     }
 
@@ -28,26 +31,37 @@ class AdminController extends AbstractController
     public function login(Request $request): Response
     {
         $session = $request->getSession();
-        if ($session->get(self::SESSION_AUTH_KEY) === true) {
+        if ($session->get(self::SESSION_ADMIN_KEY) === true) {
             return $this->redirectToRoute('admin_dashboard');
         }
 
         $error = null;
+        $enteredIdentity = '';
         $statusCode = Response::HTTP_OK;
 
         if ($request->isMethod('POST')) {
             $token = (string) $request->request->get('_csrf_token', '');
-            $enteredCode = trim((string) $request->request->get('access_code', ''));
+            $enteredIdentity = trim((string) $request->request->get('identity', ''));
+            $enteredPassword = (string) $request->request->get('password', '');
+
+            $normalizedIdentity = mb_strtolower($enteredIdentity);
+            $expectedEmail = mb_strtolower(trim($this->adminUsername));
+            $identityMatches = $normalizedIdentity !== '' && (
+                hash_equals($expectedEmail, $normalizedIdentity)
+                || hash_equals('admin', $normalizedIdentity)
+            );
+            $passwordMatches = $enteredPassword !== '' && hash_equals($this->adminPassword, $enteredPassword);
 
             if (!$this->isCsrfTokenValid('admin_login', $token)) {
-                $error = 'Your session expired. Please submit the access code again.';
+                $error = 'Your session expired. Please sign in again.';
                 $statusCode = Response::HTTP_BAD_REQUEST;
-            } elseif ($enteredCode === '' || !hash_equals($this->adminAccessCode, $enteredCode)) {
-                $error = 'Invalid access code. Please enter the 4-digit staff/admin access code.';
+            } elseif (!$identityMatches || !$passwordMatches) {
+                $error = 'Invalid administrator username/email or password.';
                 $statusCode = Response::HTTP_UNAUTHORIZED;
             } else {
                 $session->migrate(true);
-                $session->set(self::SESSION_AUTH_KEY, true);
+                $session->set(self::SESSION_ADMIN_KEY, true);
+                $session->set(self::SESSION_STAFF_KEY, true);
 
                 $targetPath = $session->remove(self::SESSION_TARGET_KEY);
                 if (
@@ -64,12 +78,16 @@ class AdminController extends AbstractController
 
         return $this->render('admin/login.html.twig', [
             'error' => $error,
+            'entered_identity' => $enteredIdentity,
         ], new Response('', $statusCode));
     }
 
     #[Route('', name: 'admin_dashboard', methods: ['GET'])]
-    public function index(Request $request, TicketRepository $ticketRepository): Response
-    {
+    public function index(
+        Request $request,
+        TicketRepository $ticketRepository,
+        EventRepository $eventRepository,
+    ): Response {
         if (!$this->isAdminAuthenticated($request)) {
             return $this->redirectToRoute('admin_login');
         }
@@ -82,6 +100,7 @@ class AdminController extends AbstractController
         $search = trim((string) $request->query->get('q', ''));
         $tickets = $ticketRepository->findFiltered($activeStatus, $search);
         $counts = $ticketRepository->getStatusCounts();
+        $events = $eventRepository->findFiltered();
 
         return $this->render('admin/index.html.twig', [
             'tickets' => $tickets,
@@ -89,6 +108,7 @@ class AdminController extends AbstractController
             'active_status' => $activeStatus,
             'search' => $search,
             'available_statuses' => Ticket::getAvailableStatuses(),
+            'events' => $events,
         ]);
     }
 
@@ -233,9 +253,11 @@ class AdminController extends AbstractController
         $token = (string) $request->request->get('_csrf_token', '');
         if ($this->isCsrfTokenValid('admin_logout', $token)) {
             $session = $request->getSession();
-            $session->remove(self::SESSION_AUTH_KEY);
+            $session->remove(self::SESSION_ADMIN_KEY);
+            $session->remove(self::SESSION_STAFF_KEY);
+            $session->remove('admin_authenticated');
             $session->remove(self::SESSION_TARGET_KEY);
-            $this->addFlash('admin_info', 'Staff & Admin session locked.');
+            $this->addFlash('admin_info', 'Session locked.');
         }
 
         return $this->redirectToRoute('admin_login');
@@ -243,6 +265,6 @@ class AdminController extends AbstractController
 
     private function isAdminAuthenticated(Request $request): bool
     {
-        return $request->getSession()->get(self::SESSION_AUTH_KEY) === true;
+        return $request->hasPreviousSession() && $request->getSession()->get(self::SESSION_ADMIN_KEY) === true;
     }
 }

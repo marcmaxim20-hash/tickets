@@ -1,25 +1,31 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Buy Festival QR Ticket — SwiftDesk{% endblock %}
+{% block title %}Buy Ticket — {{ selected_event.title }}{% endblock %}
 
 {% block body %}
-<div class="container-narrow">
+<div class="container-narrow" style="max-width: 760px;">
     <div class="breadcrumb">
-        <a href="{{ path('ticket_home') }}">&larr; Back to main page</a>
+        <a href="{{ path('event_show', {id: selected_event.id}) }}">&larr; Back to {{ selected_event.title }}</a>
     </div>
 
     <div class="card">
-        <div class="card-header" style="background: linear-gradient(135deg, #ecfdf5 0%, #eef2ff 100%); border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);">
+        <div class="card-header checkout-card-header">
             <div>
-                <span class="badge badge-festival" style="margin-bottom: 0.45rem;">24-Hour Festival Door QR</span>
-                <h1 class="section-title" style="font-size: 1.4rem;">Buy Festival QR Ticket</h1>
+                <span class="badge badge-festival" style="margin-bottom: 0.45rem;">{{ selected_event.categoryLabel }} &middot; {{ selected_event.availableSeats }} Seats Left</span>
+                <h1 class="section-title" style="font-size: 1.4rem;">Buy Ticket for {{ selected_event.title }}</h1>
                 <p class="section-subtitle" style="color: var(--text-secondary);">
-                    Enter your email below. Your 24-hour Festival Door QR code will be emailed to you and a <strong>See QR</strong> button will appear in the main menu.
+                    Reserves 1 seat at <strong>{{ selected_event.venue }}</strong>{% if selected_event.location %} ({{ selected_event.location }}){% endif %} and generates your private QR pass.
                 </p>
             </div>
         </div>
         <div class="card-body">
-            {{ include('ticket/_form.html.twig', {form: form}) }}
+            {{ include('ticket/_form.html.twig', {
+                form: form,
+                tiers: tiers,
+                selected_event: selected_event,
+                all_events: all_events,
+                customer: customer
+            }) }}
         </div>
     </div>
 </div>

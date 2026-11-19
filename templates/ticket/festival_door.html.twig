@@ -6,7 +6,9 @@
 <div class="container-narrow">
     <div class="breadcrumb" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
         <a href="{{ path('festival_pass_show', {token: ticket.qrToken}) }}">&larr; Back to QR Pass #{{ ticket.id }}</a>
-        <a href="{{ path('staff_scanner') }}">Open Staff Scanner Console &rarr;</a>
+        {% if is_staff %}
+            <a href="{{ path('staff_scanner') }}">Open Staff Scanner Console &rarr;</a>
+        {% endif %}
     </div>
 
     {% if door_state == 'admitted_now' %}
@@ -37,7 +39,7 @@
         </section>
 
     {% elseif door_state == 'ready_to_scan' %}
-        <section class="door-screen door-unlocked" style="background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%); border-color: var(--primary-border);">
+        <section class="door-screen door-unlocked" style="background: linear-gradient(180deg, var(--primary-soft) 0%, var(--bg-surface) 100%); border-color: var(--primary-border);">
             <span class="badge badge-unused" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
                 <span class="badge-dot"></span> VALID UNUSED TICKET (#{{ ticket.id }})
             </span>
@@ -60,7 +62,7 @@
 
                 {% if not is_staff %}
                     <div class="form-group" style="text-align:left;">
-                        <label for="staff_code" class="form-label">Staff Access Code (<code>1234</code>)</label>
+                        <label for="staff_code" class="form-label">Entrance Staff PIN</label>
                         <input
                             type="password"
                             id="staff_code"

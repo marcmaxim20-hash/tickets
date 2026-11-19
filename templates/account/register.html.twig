@@ -1,17 +1,23 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Create Customer Account — SwiftDesk{% endblock %}
+{% block title %}Register Account — SwiftDesk{% endblock %}
 
 {% block body %}
-<div class="gate-wrapper" style="max-width: 480px;">
+<div class="gate-wrapper" style="max-width: 530px;">
     <div class="card">
         <div class="card-header">
             <div>
-                <h1 class="section-title" style="font-size: 1.35rem;">Create Customer Account</h1>
-                <p class="section-subtitle">Track every ticket you purchase and access your QR codes anytime. Any tickets already bought with your email are linked automatically!</p>
+                <h1 class="section-title" style="font-size: 1.35rem;">Register Customer Account</h1>
+                <p class="section-subtitle">Choose <strong>Customer</strong> to buy event tickets &amp; QR passes, or choose <strong>Organizer</strong> (with the organizer password) to create new events.</p>
             </div>
         </div>
         <div class="card-body">
+            {% if existing_customer is defined and existing_customer %}
+                <div class="alert alert-info" role="status">
+                    Signed in as <strong>{{ existing_customer.email }}</strong> ({{ existing_customer.roleLabel }}). Registering below will create and switch to the new account.
+                </div>
+            {% endif %}
+
             {% if error %}
                 <div class="alert alert-error" role="alert">{{ error }}</div>
             {% endif %}
@@ -20,7 +26,57 @@
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('customer_register') }}">
 
                 <div class="form-group">
-                    <label for="name" class="form-label">Your Name</label>
+                    <span class="form-label">Account Type</span>
+                    <div class="role-selector-grid" role="radiogroup" aria-label="Choose account type">
+                        <label class="role-option-card {{ form_data.role == 'customer' ? 'is-selected' : '' }}">
+                            <input
+                                type="radio"
+                                name="role"
+                                value="customer"
+                                {{ form_data.role == 'customer' ? 'checked' : '' }}
+                            >
+                            <span>
+                                <strong class="role-option-title">Customer</strong>
+                                <span class="role-option-desc">Browse events, buy seats, and access private QR passes.</span>
+                            </span>
+                        </label>
+
+                        <label class="role-option-card {{ form_data.role == 'organizer' ? 'is-selected' : '' }}">
+                            <input
+                                type="radio"
+                                name="role"
+                                value="organizer"
+                                {{ form_data.role == 'organizer' ? 'checked' : '' }}
+                            >
+                            <span>
+                                <strong class="role-option-title">Organizer</strong>
+                                <span class="role-option-desc">Create new events only (requires Organizer password).</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div
+                    id="organizer-password-group"
+                    class="form-group organizer-code-box"
+                    {{ form_data.role == 'organizer' ? '' : 'hidden' }}
+                >
+                    <label for="organizer_password" class="form-label">Organizer Password</label>
+                    <input
+                        type="password"
+                        id="organizer_password"
+                        name="organizer_password"
+                        class="form-control"
+                        inputmode="numeric"
+                        placeholder="Enter Organizer password"
+                        autocomplete="off"
+                        {{ form_data.role == 'organizer' ? 'required' : '' }}
+                    >
+                    <span class="form-hint">Required to register as an Organizer. Organizers can only create new events.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="name" class="form-label">Full Name</label>
                     <input
                         type="text"
                         id="name"
@@ -44,31 +100,85 @@
                         placeholder="you@gmail.com"
                         required
                     >
-                    <span class="form-hint">Use the same email you buy tickets with to link all past and future tickets.</span>
                 </div>
 
-                <div class="form-group">
-                    <label for="password" class="form-label">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        class="form-control"
-                        placeholder="At least 6 characters"
-                        minlength="6"
-                        required
-                    >
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="password" class="form-label">Password</label>
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-control"
+                            placeholder="Min. 6 characters"
+                            minlength="6"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password_confirm" class="form-label">Confirm Password</label>
+                        <input
+                            type="password"
+                            id="password_confirm"
+                            name="password_confirm"
+                            class="form-control"
+                            placeholder="Repeat password"
+                            minlength="6"
+                            required
+                        >
+                    </div>
                 </div>
 
-                <button type="submit" class="btn btn-festival" style="width: 100%; margin-top: 0.5rem;">
-                    Create Account
+                <button type="submit" id="register-submit-btn" class="btn btn-festival" style="width: 100%; margin-top: 0.35rem;">
+                    {{ form_data.role == 'organizer' ? 'Register Organizer Account' : 'Register Customer Account' }}
                 </button>
             </form>
 
-            <div style="margin-top: 1.35rem; padding-top: 1.1rem; border-top: 1px solid var(--border-color); text-align: center; font-size: 0.9rem; color: var(--text-secondary);">
-                Already have an account? <a href="{{ path('account_login') }}" style="font-weight: 700;">Sign In &rarr;</a>
+            <div style="margin-top: 1.35rem; padding-top: 1.15rem; border-top: 1px solid var(--border-color); text-align: center; font-size: 0.88rem;">
+                Already registered? <a href="{{ path('account_login') }}" style="font-weight: 700;">Sign In</a>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var roleRadios = document.querySelectorAll('input[name="role"]');
+    var organizerGroup = document.getElementById('organizer-password-group');
+    var organizerInput = document.getElementById('organizer_password');
+    var submitBtn = document.getElementById('register-submit-btn');
+
+    function syncRoleSelection() {
+        var selected = document.querySelector('input[name="role"]:checked');
+        var isOrganizer = selected && selected.value === 'organizer';
+
+        roleRadios.forEach(function (radio) {
+            var card = radio.closest('.role-option-card');
+            if (card) {
+                card.classList.toggle('is-selected', radio.checked);
+            }
+        });
+
+        if (organizerGroup && organizerInput) {
+            organizerGroup.hidden = !isOrganizer;
+            organizerInput.required = isOrganizer;
+            if (!isOrganizer) {
+                organizerInput.value = '';
+            }
+        }
+
+        if (submitBtn) {
+            submitBtn.textContent = isOrganizer
+                ? 'Register Organizer Account'
+                : 'Register Customer Account';
+        }
+    }
+
+    roleRadios.forEach(function (radio) {
+        radio.addEventListener('change', syncRoleSelection);
+    });
+    syncRoleSelection();
+});
+</script>
 {% endblock %}

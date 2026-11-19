@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\TicketRepository;
+use App\Service\TicketCatalog;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -14,6 +15,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(name: 'idx_tickets_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_tickets_created_at', columns: ['created_at'])]
 #[ORM\Index(name: 'idx_tickets_customer', columns: ['customer_id'])]
+#[ORM\Index(name: 'idx_tickets_event', columns: ['event_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_tickets_qr_token', columns: ['qr_token'])]
 class Ticket
 {
@@ -30,7 +32,7 @@ class Ticket
     private ?int $id = null;
 
     #[ORM\Column(length: 180)]
-    private string $title = 'Festival Door 24h QR Ticket';
+    private string $title = 'Preferred Front-Zone Pass';
 
     #[ORM\Column(length: 180)]
     #[Assert\NotBlank(message: 'Please enter your email address.')]
@@ -39,7 +41,14 @@ class Ticket
     private string $contact = '';
 
     #[ORM\Column(type: Types::TEXT)]
-    private string $description = 'Single-entry 24-hour QR pass that opens the festival door.';
+    private string $description = 'Single-entry QR pass.';
+
+    #[ORM\Column(name: 'tier_key', length: 40, options: ['default' => TicketCatalog::DEFAULT_TIER])]
+    #[Assert\NotBlank]
+    private string $tierKey = TicketCatalog::DEFAULT_TIER;
+
+    #[ORM\Column(name: 'price_cents', options: ['default' => 3900])]
+    private int $priceCents = 3900;
 
     #[ORM\Column(length: 32)]
     #[Assert\Choice(choices: [self::STATUS_OPEN, self::STATUS_IN_PROGRESS, self::STATUS_RESOLVED])]
@@ -60,6 +69,10 @@ class Ticket
     #[ORM\ManyToOne(targetEntity: Customer::class, inversedBy: 'tickets')]
     #[ORM\JoinColumn(name: 'customer_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?Customer $customer = null;
+
+    #[ORM\ManyToOne(targetEntity: Event::class, inversedBy: 'tickets')]
+    #[ORM\JoinColumn(name: 'event_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Event $event = null;
 
     #[ORM\Column(name: 'created_at')]
     private \DateTimeImmutable $createdAt;
@@ -132,6 +145,39 @@ class Ticket
         return $this;
     }
 
+    public function getTierKey(): string
+    {
+        return $this->tierKey;
+    }
+
+    public function setTierKey(string $tierKey): self
+    {
+        $this->tierKey = trim($tierKey);
+
+        return $this;
+    }
+
+    public function getPriceCents(): int
+    {
+        return $this->priceCents;
+    }
+
+    public function setPriceCents(int $priceCents): self
+    {
+        $this->priceCents = max(0, $priceCents);
+
+        return $this;
+    }
+
+    public function getFormattedPrice(): string
+    {
+        $dollars = ($this->priceCents % 100 === 0)
+            ? (string) intdiv($this->priceCents, 100)
+            : number_format($this->priceCents / 100, 2);
+
+        return $dollars . '$';
+    }
+
     public function getStatus(): string
     {
         return $this->status;
@@ -171,7 +217,10 @@ class Ticket
         $issuedAt = $now ?? new \DateTimeImmutable();
         $this->ticketType = self::TYPE_FESTIVAL;
         $this->qrToken = $uniqueToken ?? bin2hex(random_bytes(16));
-        $this->qrExpiresAt = $issuedAt->modify('+24 hours');
+
+        $defaultExpiry = $issuedAt->modify('+24 hours');
+        $eventEnd = $this->event?->getEndDate();
+        $this->qrExpiresAt = ($eventEnd !== null && $eventEnd > $defaultExpiry) ? $eventEnd : $defaultExpiry;
         $this->updatedAt = $issuedAt;
 
         return $this;
@@ -217,6 +266,40 @@ class Ticket
         return $this;
     }
 
+    public function getEvent(): ?Event
+    {
+        return $this->event;
+    }
+
+    public function setEvent(?Event $event): self
+    {
+        $this->event = $event;
+
+        return $this;
+    }
+
+    public function isOwnedBy(Customer $customer): bool
+    {
+        if ($this->customer !== null && $this->customer->getId() !== null) {
+            return $this->customer->getId() === $customer->getId();
+        }
+
+        return mb_strtolower($this->contact) === mb_strtolower($customer->getEmail());
+    }
+
+    /**
+     * True only when this ticket was genuinely purchased on the site by a registered customer
+     * for its linked event (excluding legacy backfilled or unowned rows).
+     */
+    public function isSiteSeatPurchase(): bool
+    {
+        if ($this->customer === null || $this->qrToken === null || $this->event === null) {
+            return false;
+        }
+
+        return $this->createdAt >= $this->event->getCreatedAt()->modify('-5 minutes');
+    }
+
     public function isQrExpired(?\DateTimeImmutable $now = null): bool
     {
         if ($this->qrExpiresAt === null) {
@@ -228,9 +311,6 @@ class Ticket
         return $checkTime > $this->qrExpiresAt;
     }
 
-    /**
-     * Returns true when the ticket has a QR code, has NOT been used yet, and is within its 24h window.
-     */
     public function isQrValid(?\DateTimeImmutable $now = null): bool
     {
         if ($this->qrToken === null || $this->isUsed()) {

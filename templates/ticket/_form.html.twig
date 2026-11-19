@@ -1,18 +1,87 @@
 {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
     <div class="form-group">
-        {{ form_label(form.contact, 'Email', {'label_attr': {'class': 'form-label'}}) }}
-        {{ form_widget(form.contact, {'attr': {'class': 'form-control'}}) }}
+        <label for="event_id" class="form-label">Event &amp; Venue</label>
+        <select
+            id="event_id"
+            name="event_id"
+            class="form-select"
+            onchange="window.location.href = '{{ path('ticket_new') }}?event=' + this.value"
+        >
+            {% for ev in all_events %}
+                <option value="{{ ev.id }}" {{ ev.id == selected_event.id ? 'selected' : '' }} {{ ev.soldOut ? 'disabled' : '' }}>
+                    [{{ ev.categoryLabel }}] {{ ev.title }} — {{ ev.venue }} ({{ ev.availableSeats }}/{{ ev.totalSeats }} seats left)
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div style="display:flex;gap:1rem;align-items:center;padding:0.9rem 1rem;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:12px;margin-bottom:1.35rem;">
+        <img src="{{ selected_event.displayImageUrl }}" alt="{{ selected_event.title }}" style="width:88px;height:62px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+        <div style="font-size:0.85rem;line-height:1.45;">
+            <strong style="font-size:0.96rem;color:var(--text-main);display:block;">{{ selected_event.title }} ({{ selected_event.categoryLabel }})</strong>
+            <span><strong>Venue:</strong> {{ selected_event.venue }} &middot; <strong>Seats left:</strong> {{ selected_event.availableSeats }}/{{ selected_event.totalSeats }}</span><br>
+            {% if selected_event.location %}
+                <span>
+                    <strong>Location:</strong> {{ selected_event.location }}
+                    {% if selected_event.mapsUrl %}
+                        &middot; <a href="{{ selected_event.mapsUrl }}" target="_blank" rel="noopener noreferrer" style="font-weight:700;">Open in Maps &nearr;</a>
+                    {% endif %}
+                </span><br>
+            {% endif %}
+            <span><strong>Dates:</strong> {{ selected_event.startDate|date('M j, Y H:i') }} &ndash; {{ selected_event.endDate|date('M j, Y H:i') }}</span>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Select Ticket Tier</label>
+        <div class="tier-selector-grid">
+            {% for child in form.tierKey %}
+                {% set tier_key = child.vars.value %}
+                {% set tier_info = tiers[tier_key] %}
+                <label class="tier-radio-option">
+                    {{ form_widget(child, {'attr': {'data-price': tier_info.price_display}}) }}
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+                            <strong style="font-size:0.95rem;">{{ tier_info.name }}</strong>
+                            <span class="price-tag">{{ tier_info.price_display }}</span>
+                        </div>
+                        <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.2rem;">
+                            {{ tier_info.summary }}
+                        </div>
+                    </div>
+                </label>
+            {% endfor %}
+        </div>
+        <div class="form-errors">{{ form_errors(form.tierKey) }}</div>
+    </div>
+
+    <div class="form-group" style="margin-top:1.35rem;">
+        {{ form_label(form.contact, 'Account Email', {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.contact, {'attr': {'class': 'form-control', 'readonly': 'readonly'}}) }}
         <div class="form-errors">{{ form_errors(form.contact) }}</div>
-        <span class="form-hint">Enter your email address to get your 24-hour Festival Door QR code (sent to your email and unlocked in the main menu).</span>
+        <span class="form-hint">Signed in as <strong>{{ customer.name }}</strong> — only your account ({{ customer.email }}) can view this ticket.</span>
     </div>
 
     <div class="form-actions">
-        <a href="{{ path('ticket_home') }}" class="btn btn-secondary">Cancel</a>
-        <button type="submit" class="btn btn-festival">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/>
-            </svg>
-            Buy QR Ticket
+        <a href="{{ path('event_show', {id: selected_event.id}) }}" class="btn btn-secondary">Back to Event</a>
+        <button type="submit" id="buy-submit-btn" class="btn btn-festival" {{ selected_event.soldOut ? 'disabled' : '' }}>
+            Buy Ticket
         </button>
     </div>
 {{ form_end(form) }}
+
+<script>
+(() => {
+    const btn = document.getElementById('buy-submit-btn');
+    const radios = document.querySelectorAll('input[name="ticket[tierKey]"]');
+    const syncPrice = () => {
+        const checked = document.querySelector('input[name="ticket[tierKey]"]:checked');
+        const price = checked?.getAttribute('data-price');
+        if (btn && price && !btn.disabled) {
+            btn.textContent = `Buy Ticket for ${price}`;
+        }
+    };
+    radios.forEach((r) => r.addEventListener('change', syncPrice));
+    syncPrice();
+})();
+</script>

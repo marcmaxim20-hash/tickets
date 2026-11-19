@@ -4,13 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Staff &amp; Admin — SwiftDesk{% endblock %}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('swiftdesk_theme');
+                if (t && t !== 'sunset') document.documentElement.setAttribute('data-theme', t);
+                if (t === 'custom') {
+                    var c = localStorage.getItem('swiftdesk_custom_color');
+                    if (c) document.documentElement.style.setProperty('--custom-accent', c);
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=5">
+    <script src="{{ asset('js/ui.js') }}?v=5" defer></script>
 </head>
 <body>
+    {% set is_admin = app.session.get('admin_role_authenticated') == true %}
+    {% set is_staff = app.session.get('staff_scanner_authenticated') == true %}
     <header class="admin-header">
         <div class="container header-inner">
             <div style="display:flex;align-items:center;gap:0.75rem;">
-                <a href="{{ path('admin_dashboard') }}" class="brand">
+                <a href="{{ is_admin ? path('admin_dashboard') : path('ticket_home') }}" class="brand">
                     <span class="brand-mark" aria-hidden="true">
                         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -18,25 +33,34 @@
                     </span>
                     <span>SwiftDesk</span>
                 </a>
-                <span class="admin-badge">Staff &amp; Admin</span>
+                <span class="admin-badge">{{ is_admin ? 'Administrator' : 'Entrance Staff' }}</span>
             </div>
 
             <nav class="nav-links" aria-label="Admin Navigation" style="flex-wrap:wrap;">
-                {% if app.session.get('admin_authenticated') == true %}
-                    <a href="{{ path('staff_scanner') }}" class="admin-nav-link {{ app.current_route starts with 'staff_scanner' ? 'active' : '' }}">
-                        Entrance QR Scanner
+                {% if is_admin %}
+                    <a href="{{ path('admin_events_new') }}" class="btn btn-festival btn-sm">
+                        + Create New Event
+                    </a>
+                    <a href="{{ path('admin_events_index') }}" class="admin-nav-link {{ app.current_route == 'admin_events_index' or app.current_route == 'admin_events_edit' ? 'active' : '' }}">
+                        Events &amp; Photos
                     </a>
                     <a href="{{ path('admin_dashboard') }}" class="admin-nav-link {{ app.current_route == 'admin_dashboard' or app.current_route == 'admin_ticket_show' ? 'active' : '' }}">
                         All Tickets
                     </a>
                 {% endif %}
+                {% if is_admin or is_staff %}
+                    <a href="{{ path('staff_scanner') }}" class="admin-nav-link {{ app.current_route starts with 'staff_scanner' ? 'active' : '' }}">
+                        Entrance QR Scanner
+                    </a>
+                {% endif %}
                 <a href="{{ path('ticket_home') }}" class="admin-nav-link">
                     Public Site &nearr;
                 </a>
-                {% if app.session.get('admin_authenticated') == true %}
+                {{ include('_theme_switcher.html.twig') }}
+                {% if is_admin or is_staff %}
                     <form method="post" action="{{ path('admin_logout') }}" style="margin:0;">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_logout') }}">
-                        <button type="submit" class="btn btn-sm btn-ghost-dark">Lock</button>
+                        <button type="submit" class="btn btn-sm btn-ghost-dark">Sign Out</button>
                     </form>
                 {% endif %}
             </nav>

@@ -1,0 +1,127 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ event.title }} ({{ event.categoryLabel }}) — Buy Tickets{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="breadcrumb">
+        <a href="{{ path('ticket_home') }}">&larr; Back to All Events</a>
+    </div>
+
+    {% for message in app.flashes('warning') %}
+        <div class="alert alert-warning" role="alert">{{ message }}</div>
+    {% endfor %}
+
+    <section class="event-hero-banner">
+        <div class="event-hero-img">
+            <img src="{{ event.displayImageUrl }}" alt="{{ event.title }}">
+        </div>
+
+        <div class="event-hero-info">
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.65rem;">
+                <span class="badge badge-festival">{{ event.categoryLabel }}</span>
+                {% if event.soldOut %}
+                    <span class="badge badge-used"><span class="badge-dot"></span>SOLD OUT</span>
+                {% else %}
+                    <span class="badge badge-unused"><span class="badge-dot"></span>{{ event.availableSeats }} Seats Available</span>
+                {% endif %}
+            </div>
+
+            <h1 style="margin:0 0 0.65rem;font-size:clamp(1.55rem, 2.8vw, 2.1rem);font-weight:800;letter-spacing:-0.025em;line-height:1.2;">
+                {{ event.title }}
+            </h1>
+
+            <p style="margin:0 0 1.25rem;color:var(--text-secondary);font-size:0.96rem;line-height:1.6;">
+                {{ event.description }}
+            </p>
+
+            <ul class="meta-list" style="border-top:1px solid var(--border-color);padding-top:0.5rem;">
+                <li>
+                    <span class="meta-label">Place / Venue</span>
+                    <span class="meta-value">{{ event.venue }}</span>
+                </li>
+                {% if event.location %}
+                    <li>
+                        <span class="meta-label">Location (Where to Go)</span>
+                        <span class="meta-value" style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
+                            <span>{{ event.location }}</span>
+                            {% if event.mapsUrl %}
+                                <a href="{{ event.mapsUrl }}" target="_blank" rel="noopener noreferrer" class="maps-link">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                    <span>Open in Maps &nearr;</span>
+                                </a>
+                            {% endif %}
+                        </span>
+                    </li>
+                {% endif %}
+                <li>
+                    <span class="meta-label">Event Schedule (Start &ndash; End)</span>
+                    <span class="meta-value">
+                        {{ event.startDate|date('M j, Y H:i') }} &rarr; {{ event.endDate|date('M j, Y H:i') }}
+                    </span>
+                </li>
+                <li>
+                    <span class="meta-label">Venue Seating Availability</span>
+                    <span class="meta-value">
+                        <strong>{{ event.availableSeats }}</strong> available out of <strong>{{ event.totalSeats }}</strong> total seats ({{ event.soldTicketsCount }} bought on this site)
+                    </span>
+                    <div class="seats-meter" style="margin: 0.55rem 0 0;">
+                        <div class="seats-meter-top">
+                            <span>{{ event.soldOut ? 'Sold Out' : event.availableSeats ~ ' seats left' }}</span>
+                            <span style="color: var(--text-muted);">{{ event.soldTicketsCount }} / {{ event.totalSeats }} bought</span>
+                        </div>
+                        <div class="seats-bar">
+                            <div class="seats-bar-fill {{ event.soldOut ? 'sold-out' : '' }}" style="width: {{ event.occupancyPercent }}%;"></div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    {% set viewer = current_customer() %}
+    <section class="pricing-section" aria-labelledby="tiers-heading">
+        <div>
+            <h2 id="tiers-heading" class="section-title" style="font-size: 1.4rem;">Select Your Ticket for {{ event.title }}</h2>
+            <p class="section-subtitle">Each ticket reserves 1 seat in {{ event.venue }} and generates a unique single-entry QR code.</p>
+        </div>
+
+        {% if viewer and viewer.organizer %}
+            <div class="alert alert-info" role="status" style="margin-top: 1rem;">
+                Signed in as <strong>Organizer ({{ viewer.name }})</strong>. Organizer accounts can only create new events — switch to a Customer account to purchase tickets.
+            </div>
+        {% endif %}
+
+        <div class="pricing-grid">
+            {% for key, tier in tiers %}
+                <article class="pricing-card {{ tier.featured ? 'featured' : '' }}">
+                    <span class="pricing-badge">{{ tier.badge }}</span>
+                    <h3 class="pricing-name">{{ tier.name }}</h3>
+                    <div class="pricing-price">{{ tier.price_display }}</div>
+                    <p class="pricing-summary">{{ tier.summary }}</p>
+
+                    <ul class="pricing-perks">
+                        {% for perk in tier.perks %}
+                            <li><span>{{ perk }}</span></li>
+                        {% endfor %}
+                    </ul>
+
+                    {% if event.soldOut %}
+                        <button type="button" class="btn btn-secondary" style="width:100%;opacity:0.6;cursor:not-allowed;" disabled>
+                            Sold Out
+                        </button>
+                    {% elseif viewer and viewer.organizer %}
+                        <button type="button" class="btn btn-secondary" style="width:100%;opacity:0.65;cursor:not-allowed;" disabled>
+                            Customer Accounts Only
+                        </button>
+                    {% else %}
+                        <a href="{{ path('ticket_new', {event: event.id, tier: key}) }}" class="btn {{ tier.featured ? 'btn-primary' : 'btn-festival' }}" style="width: 100%;">
+                            Buy for {{ tier.price_display }}
+                        </a>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

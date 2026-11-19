@@ -1,0 +1,119 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Organizer Dashboard — {{ customer.name }}{% endblock %}
+
+{% block body %}
+<div class="container">
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success" role="status">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('warning') %}
+        <div class="alert alert-warning" role="alert">{{ message }}</div>
+    {% endfor %}
+
+    <div class="page-heading">
+        <div>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.25rem;">
+                <h1 style="margin:0;">{{ customer.name }}’s Organizer Hub</h1>
+                <span class="badge badge-organizer">Organizer</span>
+            </div>
+            <p>{{ customer.email }} &middot; Organizer since {{ customer.createdAt|date('M j, Y') }}</p>
+        </div>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+            <a href="{{ path('organizer_events_new') }}" class="btn btn-festival">+ Create New Event</a>
+            <form method="post" action="{{ path('account_logout') }}" style="margin:0;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('customer_logout') }}">
+                <button type="submit" class="btn btn-secondary">Sign Out</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="alert alert-info" role="status" style="margin-bottom: 1.5rem;">
+        <strong>Organizer Permissions:</strong> As an Organizer, you can <strong>create new events</strong> (including venue, address/location, seats, schedule, and cover photo). Editing existing events, changing photos, and managing customer tickets are restricted to Administrators.
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div class="kpi-card">
+            <div class="kpi-label"><span>Account Role</span></div>
+            <div class="kpi-value" style="font-size: 1.45rem;">Organizer</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label"><span>Events You Created</span></div>
+            <div class="kpi-value">{{ events|length }}</div>
+        </div>
+    </div>
+
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="section-title">Events Created by You</h2>
+                <p class="section-subtitle">Read-only overview of events you published. Click "+ Create New Event" to add another.</p>
+            </div>
+            <a href="{{ path('organizer_events_new') }}" class="btn btn-festival btn-sm">+ Create New Event</a>
+        </div>
+
+        {% if events is empty %}
+            <div class="empty-state">
+                <h3>You haven’t created any events yet</h3>
+                <p>Publish your first Concert, Theatre show, or Festival with a clear location so guests know where to go.</p>
+                <a href="{{ path('organizer_events_new') }}" class="btn btn-festival">+ Create New Event</a>
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="ticket-table">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Event &amp; Type</th>
+                            <th>Venue &amp; Location</th>
+                            <th>Start &ndash; End Date</th>
+                            <th>Seats Available</th>
+                            <th style="text-align:right;">Public Page</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in events %}
+                            <tr>
+                                <td style="width:110px;">
+                                    <img src="{{ event.displayImageUrl }}" alt="{{ event.title }}" style="width:92px;height:58px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);display:block;">
+                                </td>
+                                <td>
+                                    <strong>{{ event.title }}</strong>
+                                    <div style="margin-top:0.2rem;">
+                                        <span class="badge badge-festival">{{ event.categoryLabel }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="font-weight:600;">{{ event.venue }}</div>
+                                    {% if event.location %}
+                                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.15rem;">
+                                            {{ event.location }}
+                                            {% if event.mapsUrl %}
+                                                &middot; <a href="{{ event.mapsUrl }}" target="_blank" rel="noopener noreferrer">Maps &nearr;</a>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size:0.84rem;color:var(--text-secondary);white-space:nowrap;">
+                                    {{ event.startDate|date('M j, Y H:i') }}<br>
+                                    &rarr; {{ event.endDate|date('M j, Y H:i') }}
+                                </td>
+                                <td>
+                                    {% if event.soldOut %}
+                                        <span class="badge badge-used">Sold Out (0 / {{ event.totalSeats }})</span>
+                                    {% else %}
+                                        <span class="badge badge-unused">{{ event.availableSeats }} / {{ event.totalSeats }} left</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align:right;white-space:nowrap;">
+                                    <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-secondary btn-sm">View Event &rarr;</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

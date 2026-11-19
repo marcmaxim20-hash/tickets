@@ -1,136 +1,183 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}SwiftDesk — Unique QR Tickets, Customer Accounts &amp; Entrance Scanning{% endblock %}
+{% block title %}SwiftDesk — Concerts, Theatre &amp; Festival Tickets{% endblock %}
 
 {% block body %}
-{% set qr_ticket = current_qr_ticket() %}
 {% set customer = current_customer() %}
 <div class="container">
     {% for message in app.flashes('success') %}
         <div class="alert alert-success" role="status">{{ message }}</div>
     {% endfor %}
-
     {% for message in app.flashes('warning') %}
         <div class="alert alert-warning" role="alert">{{ message }}</div>
     {% endfor %}
 
-    <section class="hero-card">
+    <section class="hero-card" style="padding: 2.75rem 2rem;">
         <div class="hero-eyebrow">
-            Single-Use Unique QR Codes &middot; Saved in MySQL
+            <span class="hero-live-dot" aria-hidden="true"></span>
+            <span>Concerts &middot; Theatre &middot; Festivals &middot; Live Seat Availability</span>
         </div>
 
-        <h1 class="hero-title">Get your unique Festival QR Ticket.</h1>
+        <h1 class="hero-title">Discover Events &amp; <span class="hero-gradient-text">Book Your Seats</span></h1>
         <p class="hero-subtitle">
-            Every ticket generates its own unique QR code stored in MySQL, tracks your full purchase history in your <strong>Customer Account</strong>, and is verified once at the entrance so it can never be used twice.
+            Choose a Concert, Theatre Gala, or Festival below, check live seat availability and event dates, and purchase private QR tickets starting at <strong>19$</strong>.
         </p>
 
         <div class="hero-actions">
-            <a href="{{ path('ticket_new') }}" class="btn btn-festival btn-lg">
-                Buy QR Ticket
-            </a>
-
-            {% if qr_ticket %}
-                <a href="{{ path('festival_pass_show', {token: qr_ticket.qrToken}) }}" class="btn btn-primary btn-lg">
-                    See QR
+            {% if customer and customer.organizer %}
+                <a href="{{ path('organizer_events_new') }}" class="btn btn-festival btn-lg">
+                    + Create New Event
                 </a>
-            {% endif %}
-
-            {% if customer %}
-                <a href="{{ path('account_dashboard') }}" class="btn btn-secondary btn-lg">
-                    My Tickets &amp; History
+                <a href="{{ path('account_dashboard') }}" class="btn btn-primary btn-lg">
+                    Organizer Hub
                 </a>
             {% else %}
-                <a href="{{ path('account_register') }}" class="btn btn-secondary btn-lg">
-                    Customer Account
+                <a href="#events-showcase" class="btn btn-festival btn-lg">
+                    Explore Upcoming Events
                 </a>
+                {% if customer %}
+                    <a href="{{ path('account_dashboard') }}" class="btn btn-primary btn-lg">
+                        My Account ({{ my_tickets_count }} Ticket{{ my_tickets_count == 1 ? '' : 's' }})
+                    </a>
+                {% else %}
+                    <a href="{{ path('account_login') }}" class="btn btn-secondary btn-lg">
+                        Sign In to View Your Tickets
+                    </a>
+                {% endif %}
             {% endif %}
         </div>
 
-        <div class="hero-metrics" aria-label="Live Ticket Overview">
-            <span class="hero-metric-item">
-                <span class="badge badge-unused"><span class="badge-dot"></span>Ready Unused QR</span>
-                <strong>{{ stats.unused_valid }}</strong>
-            </span>
-            <span class="hero-metric-item">
-                <span class="badge badge-used"><span class="badge-dot"></span>Scanned &amp; Used</span>
-                <strong>{{ stats.used }}</strong>
-            </span>
-            <span class="hero-metric-item">
-                <span class="badge badge-open"><span class="badge-dot"></span>Total Saved in MySQL</span>
-                <strong>{{ stats.total }}</strong>
-            </span>
+        <div class="hero-flow-strip" aria-label="How booking works">
+            <span class="hero-flow-step"><span class="hero-flow-num">1</span> Pick an Event &amp; Tier</span>
+            <span class="hero-flow-step"><span class="hero-flow-num">2</span> Receive Instant Private QR</span>
+            <span class="hero-flow-step"><span class="hero-flow-num">3</span> Single-Scan Entry at Venue</span>
         </div>
     </section>
 
-    <section class="steps-grid" aria-label="How It Works">
-        <div class="step-card">
-            <div class="step-icon">1</div>
-            <h3>Unique QR Saved in MySQL</h3>
-            <p>Each ticket purchase creates a cryptographically unique QR token persisted permanently in MySQL (and emailed to you).</p>
-        </div>
-        <div class="step-card">
-            <div class="step-icon">2</div>
-            <h3>Customer Account &amp; History</h3>
-            <p>Sign up or log in at <a href="{{ path('account_dashboard') }}">Customer Account</a> to view all your active QR passes and complete purchase history.</p>
-        </div>
-        <div class="step-card">
-            <div class="step-icon">3</div>
-            <h3>Single-Use Entrance Scan</h3>
-            <p>Staff scan tickets at <a href="{{ path('staff_scanner') }}">Entrance Scanner</a> (code <code>1234</code>), marking each ticket as <strong>USED</strong> so it cannot be used twice.</p>
-        </div>
-    </section>
+    <section id="events-showcase" style="margin-top: 2.35rem;" aria-labelledby="events-heading">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <h2 id="events-heading" class="section-title" style="font-size: 1.45rem;">Upcoming Events</h2>
+                <p class="section-subtitle">Pick an event to see available seats, start &amp; end dates, and ticket tiers (19$ – 149$).</p>
+            </div>
 
-    {% if recent_tickets is not empty %}
-        <section class="card recent-section" aria-labelledby="recent-heading">
-            <div class="card-header">
-                <div>
-                    <h2 id="recent-heading" class="section-title">Your Recent Tickets</h2>
-                    <p class="section-subtitle">Live single-use entrance status fetched directly from MySQL.</p>
+            <div class="events-controls">
+                <div class="live-search-box">
+                    <span class="live-search-icon" aria-hidden="true">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </span>
+                    <input
+                        type="search"
+                        id="event-live-search"
+                        class="live-search-input"
+                        placeholder="Search event, venue, or location..."
+                        aria-label="Filter events by title, venue, or location"
+                    >
+                    <button type="button" id="event-search-clear" class="live-search-clear" aria-label="Clear search" hidden>&times;</button>
                 </div>
-                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-                    {% if customer %}
-                        <a href="{{ path('account_dashboard') }}" class="btn btn-secondary btn-sm">Full Purchase History</a>
-                    {% else %}
-                        <a href="{{ path('account_register') }}" class="btn btn-secondary btn-sm">Save to Account</a>
-                    {% endif %}
-                    <a href="{{ path('ticket_new') }}" class="btn btn-festival btn-sm">+ Buy QR Ticket</a>
+
+                <div class="filter-tabs" role="tablist" aria-label="Filter by event category">
+                    <a href="{{ path('ticket_home') }}" class="filter-tab {{ active_category is null ? 'active' : '' }}">
+                        All Events
+                    </a>
+                    {% for cat_key, cat_label in categories %}
+                        <a href="{{ path('ticket_home', {category: cat_key}) }}" class="filter-tab {{ active_category == cat_key ? 'active' : '' }}">
+                            {{ cat_label }}
+                        </a>
+                    {% endfor %}
                 </div>
             </div>
-            <div class="card-body">
-                <div class="recent-list">
-                    {% for ticket in recent_tickets %}
-                        <div class="recent-item">
-                            <div>
-                                <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
-                                    <span class="ticket-id">#{{ ticket.id }}</span>
-                                    <strong>{{ ticket.contact }}</strong>
-                                    {% if ticket.used %}
-                                        <span class="badge badge-used"><span class="badge-dot"></span>Used at Entrance</span>
-                                    {% elseif ticket.qrExpired %}
-                                        <span class="badge badge-expired">Expired</span>
-                                    {% else %}
-                                        <span class="badge badge-unused"><span class="badge-dot"></span>Unused &middot; Valid</span>
-                                    {% endif %}
+        </div>
+
+        {% if events is empty %}
+            <div class="card empty-state" style="margin-top: 1.25rem;">
+                <h3>No events in this category yet</h3>
+                <p>Switch to All Events above to explore upcoming concerts, theatre shows, and festivals.</p>
+                <a href="{{ path('ticket_home') }}" class="btn btn-primary btn-sm">Show All Events</a>
+            </div>
+        {% else %}
+            <div id="events-search-empty" class="card empty-state" style="margin-top: 1.25rem;" hidden>
+                <h3>No matching events found</h3>
+                <p>Try searching for a different artist, festival, or venue name.</p>
+            </div>
+
+            <div class="events-grid">
+                {% for event in events %}
+                    <article class="event-card" data-search-text="{{ event.title }} {{ event.venue }} {{ event.location }} {{ event.categoryLabel }}">
+                        <a href="{{ path('event_show', {id: event.id}) }}" class="event-card-media">
+                            <img src="{{ event.displayImageUrl }}" alt="{{ event.title }}">
+                            <span class="event-category-pill">{{ event.categoryLabel }}</span>
+                            {% if not event.soldOut %}
+                                <span class="event-price-pill">from 19$</span>
+                            {% endif %}
+                        </a>
+
+                        <div class="event-card-body">
+                            <h3 class="event-card-title">
+                                <a href="{{ path('event_show', {id: event.id}) }}" style="color:inherit;">{{ event.title }}</a>
+                            </h3>
+
+                            <div class="event-meta-row">
+                                <strong>Place:</strong>
+                                <span>{{ event.venue }}</span>
+                            </div>
+
+                            {% if event.location %}
+                                <div class="event-meta-row">
+                                    <strong>Location:</strong>
+                                    <span>
+                                        {{ event.location }}
+                                        {% if event.mapsUrl %}
+                                            &middot; <a href="{{ event.mapsUrl }}" target="_blank" rel="noopener noreferrer" style="font-weight:700;">Maps &nearr;</a>
+                                        {% endif %}
+                                    </span>
                                 </div>
-                                <div class="recent-item-meta">
-                                    Purchased {{ ticket.createdAt|date('M j, Y \\a\\t H:i') }}
-                                    {% if ticket.used %}
-                                        &middot; Scanned on {{ ticket.usedAt|date('M j, H:i:s') }}
+                            {% endif %}
+
+                            <div class="event-meta-row">
+                                <strong>Start:</strong>
+                                <span>{{ event.startDate|date('M j, Y H:i') }}</span>
+                            </div>
+
+                            <div class="event-meta-row">
+                                <strong>End:</strong>
+                                <span>{{ event.endDate|date('M j, Y H:i') }}</span>
+                            </div>
+
+                            <div class="seats-meter">
+                                <div class="seats-meter-top">
+                                    {% if event.soldOut %}
+                                        <span style="color: var(--danger-text);">SOLD OUT (0 / {{ event.totalSeats }} seats left)</span>
+                                    {% else %}
+                                        <span style="color: var(--status-resolved-text);">{{ event.availableSeats }} of {{ event.totalSeats }} seats available</span>
                                     {% endif %}
+                                    <span style="color: var(--text-muted);">{{ event.soldTicketsCount }} bought</span>
+                                </div>
+                                <div class="seats-bar">
+                                    <div class="seats-bar-fill {{ event.soldOut ? 'sold-out' : '' }}" style="width: {{ event.occupancyPercent }}%;"></div>
                                 </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
-                                {% if ticket.qrToken %}
-                                    <a href="{{ path('festival_pass_show', {token: ticket.qrToken}) }}" class="btn btn-secondary btn-sm">
-                                        See QR
+
+                            <div style="margin-top: auto;">
+                                {% if event.soldOut %}
+                                    <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-secondary" style="width: 100%;">
+                                        Sold Out — View Details
+                                    </a>
+                                {% elseif customer and customer.organizer %}
+                                    <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-secondary" style="width: 100%;">
+                                        View Event Details &rarr;
+                                    </a>
+                                {% else %}
+                                    <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-festival" style="width: 100%;">
+                                        Choose Seats &amp; Buy (from 19$) &rarr;
                                     </a>
                                 {% endif %}
                             </div>
                         </div>
-                    {% endfor %}
-                </div>
+                    </article>
+                {% endfor %}
             </div>
-        </section>
-    {% endif %}
+        {% endif %}
+    </section>
 </div>
 {% endblock %}

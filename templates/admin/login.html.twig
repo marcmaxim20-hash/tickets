@@ -1,24 +1,25 @@
 {% extends 'admin/base_admin.html.twig' %}
 
-{% block title %}Staff &amp; Admin Access Code — SwiftDesk{% endblock %}
+{% block title %}Administrator Sign In — SwiftDesk{% endblock %}
 
 {% block admin_body %}
-<div class="gate-wrapper">
-    <div class="gate-card">
-        <div class="gate-icon" aria-hidden="true">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
+<div class="gate-wrapper" style="max-width: 450px;">
+    <div class="gate-card" style="text-align: left;">
+        <div style="text-align: center;">
+            <div class="gate-icon" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+            </div>
+
+            <h1 class="section-title" style="font-size: 1.4rem;">Administrator Sign In</h1>
+            <p class="section-subtitle" style="margin-bottom: 1.5rem;">
+                Restricted to authorized administrators. Only administrators can create or edit events and festival photos.
+            </p>
         </div>
 
-        <h1 class="section-title" style="font-size: 1.4rem;">Staff &amp; Admin Access</h1>
-        <p class="section-subtitle" style="margin-bottom: 1.5rem;">
-            Enter the 4-digit access code to unlock the <strong>Entrance QR Scanner</strong> and <strong>Admin Ticket Panel</strong>.
-        </p>
-
         {% if error %}
-            <div class="alert alert-error" role="alert" style="text-align: left;">
+            <div class="alert alert-error" role="alert">
                 {{ error }}
             </div>
         {% endif %}
@@ -26,29 +27,38 @@
         <form method="post" action="{{ path('admin_login') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_login') }}">
 
-            <div class="form-group" style="text-align: left;">
-                <label for="access_code" class="form-label">Access Code</label>
+            <div class="form-group">
+                <label for="identity" class="form-label">Admin Email or Username</label>
                 <input
-                    type="password"
-                    id="access_code"
-                    name="access_code"
-                    class="form-control gate-code-input"
-                    inputmode="numeric"
-                    placeholder="••••"
-                    maxlength="16"
+                    type="text"
+                    id="identity"
+                    name="identity"
+                    value="{{ entered_identity|default('') }}"
+                    class="form-control"
+                    placeholder="admin@swiftdesk.local"
+                    autocomplete="username"
                     autofocus
                     required
                 >
             </div>
 
+            <div class="form-group">
+                <label for="password" class="form-label">Admin Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="form-control"
+                    placeholder="Enter administrator password"
+                    autocomplete="current-password"
+                    required
+                >
+            </div>
+
             <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.78rem 1rem;">
-                Unlock Scanner &amp; Admin
+                Sign In as Administrator
             </button>
         </form>
-
-        <div class="gate-hint">
-            Local prototype staff/admin code: <code>1234</code>
-        </div>
     </div>
 </div>
 {% endblock %}

@@ -1,0 +1,49 @@
+{% extends 'admin/base_admin.html.twig' %}
+
+{% block title %}Entrance Scanner Staff Login — SwiftDesk{% endblock %}
+
+{% block admin_body %}
+<div class="gate-wrapper">
+    <div class="gate-card">
+        <div class="gate-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/>
+            </svg>
+        </div>
+
+        <h1 class="section-title" style="font-size: 1.4rem;">Entrance Gate Scanner</h1>
+        <p class="section-subtitle" style="margin-bottom: 1.5rem;">
+            Enter the gate staff PIN to verify customer QR tickets at the venue entrance.
+        </p>
+
+        {% if error %}
+            <div class="alert alert-error" role="alert" style="text-align: left;">
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="post" action="{{ path('staff_scanner_login') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('staff_scanner_login') }}">
+
+            <div class="form-group" style="text-align: left;">
+                <label for="staff_code" class="form-label">Entrance Staff PIN</label>
+                <input
+                    type="password"
+                    id="staff_code"
+                    name="staff_code"
+                    class="form-control gate-code-input"
+                    inputmode="numeric"
+                    placeholder="••••"
+                    maxlength="16"
+                    autofocus
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn btn-festival" style="width: 100%; padding: 0.78rem 1rem;">
+                Unlock Entrance Scanner
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

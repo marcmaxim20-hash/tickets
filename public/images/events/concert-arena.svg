@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="55%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#cg)"/>
+  <polygon points="160,0 260,0 400,360 80,360" fill="#38bdf8" opacity="0.18"/>
+  <polygon points="640,0 540,0 400,360 720,360" fill="#818cf8" opacity="0.22"/>
+  <rect x="230" y="290" width="340" height="70" rx="8" fill="#020617"/>
+  <circle cx="400" cy="215" r="54" fill="none" stroke="#38bdf8" stroke-width="4" opacity="0.7"/>
+  <circle cx="400" cy="215" r="26" fill="#e0f2fe" opacity="0.85"/>
+  <rect y="355" width="800" height="95" fill="#020617"/>
+  <text x="400" y="408" text-anchor="middle" fill="#ffffff" font-family="system-ui,sans-serif" font-size="24" font-weight="800" letter-spacing="3">MIDNIGHT ECHOES LIVE CONCERT</text>
+</svg>
