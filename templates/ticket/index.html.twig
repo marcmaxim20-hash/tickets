@@ -12,101 +12,179 @@
         <div class="alert alert-warning" role="alert">{{ message }}</div>
     {% endfor %}
 
-    <section class="hero-card" style="padding: 2.75rem 2rem;">
-        <div class="hero-eyebrow">
-            <span class="hero-live-dot" aria-hidden="true"></span>
-            <span>Concerts &middot; Theatre &middot; Festivals &middot; Live Seat Availability</span>
-        </div>
+    <section class="hero-card hero-card-photo" style="padding: 3.4rem 2.25rem;">
+        <img
+            src="{{ asset('images/hero-concert.jpg') }}"
+            alt="Live music concert stage and cheering crowd"
+            class="hero-bg-photo"
+            aria-hidden="true"
+        >
+        <div class="hero-photo-scrim" aria-hidden="true"></div>
 
-        <h1 class="hero-title">Discover Events &amp; <span class="hero-gradient-text">Book Your Seats</span></h1>
-        <p class="hero-subtitle">
-            Choose a Concert, Theatre Gala, or Festival below, check live seat availability and event dates, and purchase private QR tickets starting at <strong>19$</strong>.
-        </p>
+        <div class="hero-photo-content">
+            <div class="hero-eyebrow">
+                <span class="hero-live-dot" aria-hidden="true"></span>
+                <span>Concerts &middot; Festivals &middot; Theatre &middot; Cinema &middot; Sports &middot; Comedy &middot; Conferences &amp; More</span>
+            </div>
 
-        <div class="hero-actions">
-            {% if customer and customer.organizer %}
-                <a href="{{ path('organizer_events_new') }}" class="btn btn-festival btn-lg">
-                    + Create New Event
-                </a>
-                <a href="{{ path('account_dashboard') }}" class="btn btn-primary btn-lg">
-                    Organizer Hub
-                </a>
-            {% else %}
-                <a href="#events-showcase" class="btn btn-festival btn-lg">
-                    Explore Upcoming Events
-                </a>
-                {% if customer %}
+            <h1 class="hero-title">Discover Events &amp; <span class="hero-gradient-text">Book Your Seats</span></h1>
+            <p class="hero-subtitle">
+                Explore Concerts, Festivals, Theatre, Cinema, Sports, Stand-Up Comedy, Conferences, Workshops &amp; Exhibitions — pick your exact seat on the interactive map starting at <strong>19$</strong>.
+            </p>
+
+            <div class="hero-actions">
+                {% if customer and customer.organizer %}
+                    <a href="{{ path('organizer_events_new') }}" class="btn btn-festival btn-lg">
+                        + Create New Event
+                    </a>
                     <a href="{{ path('account_dashboard') }}" class="btn btn-primary btn-lg">
-                        My Account ({{ my_tickets_count }} Ticket{{ my_tickets_count == 1 ? '' : 's' }})
+                        Organizer Hub
                     </a>
                 {% else %}
-                    <a href="{{ path('account_login') }}" class="btn btn-secondary btn-lg">
-                        Sign In to View Your Tickets
+                    <a href="#events-showcase" class="btn btn-festival btn-lg">
+                        Explore Upcoming Events
                     </a>
+                    <button type="button" id="hero-ai-quiz-btn" class="btn btn-ai btn-lg">
+                        Take AI Event Match Test
+                    </button>
+                    {% if customer %}
+                        <a href="{{ path('account_dashboard') }}" class="btn btn-primary btn-lg">
+                            My Account ({{ my_tickets_count }} Ticket{{ my_tickets_count == 1 ? '' : 's' }})
+                        </a>
+                    {% else %}
+                        <a href="{{ path('account_login') }}" class="btn btn-secondary btn-lg">
+                            Sign In to View Your Tickets
+                        </a>
+                    {% endif %}
                 {% endif %}
-            {% endif %}
-        </div>
+            </div>
 
-        <div class="hero-flow-strip" aria-label="How booking works">
-            <span class="hero-flow-step"><span class="hero-flow-num">1</span> Pick an Event &amp; Tier</span>
-            <span class="hero-flow-step"><span class="hero-flow-num">2</span> Receive Instant Private QR</span>
-            <span class="hero-flow-step"><span class="hero-flow-num">3</span> Single-Scan Entry at Venue</span>
+            <div class="hero-flow-strip" aria-label="How booking works">
+                <span class="hero-flow-step"><span class="hero-flow-num">1</span> Pick an Event &amp; Tier</span>
+                <span class="hero-flow-step"><span class="hero-flow-num">2</span> Receive Instant Private QR</span>
+                <span class="hero-flow-step"><span class="hero-flow-num">3</span> Single-Scan Entry at Venue</span>
+            </div>
         </div>
     </section>
 
-    <section id="events-showcase" style="margin-top: 2.35rem;" aria-labelledby="events-heading">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
-            <div>
-                <h2 id="events-heading" class="section-title" style="font-size: 1.45rem;">Upcoming Events</h2>
-                <p class="section-subtitle">Pick an event to see available seats, start &amp; end dates, and ticket tiers (19$ – 149$).</p>
-            </div>
+    {{ include('ticket/_ai_event_quiz.html.twig') }}
 
-            <div class="events-controls">
-                <div class="live-search-box">
-                    <span class="live-search-icon" aria-hidden="true">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    </span>
-                    <input
-                        type="search"
-                        id="event-live-search"
-                        class="live-search-input"
-                        placeholder="Search event, venue, or location..."
-                        aria-label="Filter events by title, venue, or location"
-                    >
-                    <button type="button" id="event-search-clear" class="live-search-clear" aria-label="Clear search" hidden>&times;</button>
+    <section id="events-showcase" style="margin-top: 2.35rem;" aria-labelledby="events-heading">
+        <div class="events-header-stack">
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+                <div>
+                    <h2 id="events-heading" class="section-title" style="font-size: 1.45rem;">Upcoming Events</h2>
+                    <p class="section-subtitle">Search by event or location/address, check live seat maps, and reserve your exact seat (19$ – 149$).</p>
                 </div>
 
-                <div class="filter-tabs" role="tablist" aria-label="Filter by event category">
-                    <a href="{{ path('ticket_home') }}" class="filter-tab {{ active_category is null ? 'active' : '' }}">
-                        All Events
+                <form method="get" action="{{ path('ticket_home') }}#events-showcase" class="events-search-bar" id="events-filter-form">
+                    {% if active_category %}
+                        <input type="hidden" name="category" value="{{ active_category }}">
+                    {% endif %}
+
+                    <div class="live-search-box">
+                        <span class="live-search-icon" aria-hidden="true">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </span>
+                        <input
+                            type="search"
+                            id="event-live-search"
+                            name="q"
+                            value="{{ active_search }}"
+                            class="live-search-input"
+                            placeholder="Search event, artist, or venue..."
+                            aria-label="Search events by title or venue"
+                        >
+                        <button type="button" id="event-search-clear" class="live-search-clear" aria-label="Clear event search" {{ active_search ? '' : 'hidden' }}>&times;</button>
+                    </div>
+
+                    <div class="live-search-box location-search-box">
+                        <span class="live-search-icon" aria-hidden="true">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        </span>
+                        <input
+                            type="search"
+                            id="event-location-search"
+                            name="location"
+                            value="{{ active_location }}"
+                            class="live-search-input"
+                            placeholder="Search by location or address..."
+                            aria-label="Filter events by city, street address, or location"
+                        >
+                        <button type="button" id="event-location-clear" class="live-search-clear" aria-label="Clear location search" {{ active_location ? '' : 'hidden' }}>&times;</button>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+                    {% if active_location or active_search or active_category %}
+                        <a href="{{ path('ticket_home') }}#events-showcase" class="btn btn-secondary btn-sm">Reset</a>
+                    {% endif %}
+                </form>
+            </div>
+
+            {% if location_hints is not empty %}
+                <div class="location-chips-row" aria-label="Filter by location">
+                    <span class="location-chips-label">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span>Locations:</span>
+                    </span>
+                    <a
+                        href="{{ path('ticket_home', (active_category ? {category: active_category} : {})|merge(active_search ? {q: active_search} : {})) }}#events-showcase"
+                        class="location-chip {{ active_location == '' ? 'active' : '' }}"
+                    >
+                        All Locations
                     </a>
-                    {% for cat_key, cat_label in categories %}
-                        <a href="{{ path('ticket_home', {category: cat_key}) }}" class="filter-tab {{ active_category == cat_key ? 'active' : '' }}">
-                            {{ cat_label }}
+                    {% for loc_hint in location_hints %}
+                        <a
+                            href="{{ path('ticket_home', {location: loc_hint}|merge(active_category ? {category: active_category} : {})|merge(active_search ? {q: active_search} : {})) }}#events-showcase"
+                            class="location-chip {{ active_location|lower == loc_hint|lower ? 'active' : '' }}"
+                        >
+                            {{ loc_hint }}
                         </a>
                     {% endfor %}
                 </div>
+            {% endif %}
+
+            <div class="filter-tabs" role="tablist" aria-label="Filter by event category">
+                <a href="{{ path('ticket_home', (active_location ? {location: active_location} : {})|merge(active_search ? {q: active_search} : {})) }}#events-showcase" class="filter-tab {{ active_category is null ? 'active' : '' }}">
+                    All Events
+                </a>
+                {% for cat_key, cat_label in categories %}
+                    <a href="{{ path('ticket_home', {category: cat_key}|merge(active_location ? {location: active_location} : {})|merge(active_search ? {q: active_search} : {})) }}#events-showcase" class="filter-tab {{ active_category == cat_key ? 'active' : '' }}">
+                        {{ cat_label }}
+                    </a>
+                {% endfor %}
             </div>
         </div>
 
         {% if events is empty %}
             <div class="card empty-state" style="margin-top: 1.25rem;">
-                <h3>No events in this category yet</h3>
-                <p>Switch to All Events above to explore upcoming concerts, theatre shows, and festivals.</p>
-                <a href="{{ path('ticket_home') }}" class="btn btn-primary btn-sm">Show All Events</a>
+                <h3>No matching events found</h3>
+                <p>
+                    {% if active_location %}
+                        No events matched location <strong>"{{ active_location }}"</strong>{% if active_category %} in this category{% endif %}. Try a different city, street address, or clear your filters.
+                    {% else %}
+                        Switch to All Events above or clear your search to explore upcoming events.
+                    {% endif %}
+                </p>
+                <a href="{{ path('ticket_home') }}#events-showcase" class="btn btn-primary btn-sm">Show All Events</a>
             </div>
         {% else %}
             <div id="events-search-empty" class="card empty-state" style="margin-top: 1.25rem;" hidden>
                 <h3>No matching events found</h3>
-                <p>Try searching for a different artist, festival, or venue name.</p>
+                <p>Try searching for a different event name, city, or street address.</p>
+                <button type="button" id="events-search-reset-btn" class="btn btn-primary btn-sm">Clear Search Filters</button>
             </div>
 
             <div class="events-grid">
                 {% for event in events %}
-                    <article class="event-card" data-search-text="{{ event.title }} {{ event.venue }} {{ event.location }} {{ event.categoryLabel }}">
+                    <article
+                        class="event-card"
+                        data-search-text="{{ event.title }} {{ event.venue }} {{ event.location }} {{ event.categoryLabel }}"
+                        data-location-text="{{ event.location }} {{ event.venue }}"
+                    >
                         <a href="{{ path('event_show', {id: event.id}) }}" class="event-card-media">
                             <img src="{{ event.displayImageUrl }}" alt="{{ event.title }}">
-                            <span class="event-category-pill">{{ event.categoryLabel }}</span>
+                            <span class="event-category-pill">{{ event.categoryLabel }}{% if event.seatMapEnabled %} &middot; Seat Map{% endif %}</span>
                             {% if not event.soldOut %}
                                 <span class="event-price-pill">from 19$</span>
                             {% endif %}
@@ -118,18 +196,21 @@
                             </h3>
 
                             <div class="event-meta-row">
-                                <strong>Place:</strong>
+                                <strong>Venue:</strong>
                                 <span>{{ event.venue }}</span>
                             </div>
 
                             {% if event.location %}
-                                <div class="event-meta-row">
-                                    <strong>Location:</strong>
+                                <div class="event-meta-row event-address-row">
+                                    <strong>Address:</strong>
                                     <span>
                                         {{ event.location }}
-                                        {% if event.mapsUrl %}
-                                            &middot; <a href="{{ event.mapsUrl }}" target="_blank" rel="noopener noreferrer" style="font-weight:700;">Maps &nearr;</a>
-                                        {% endif %}
+                                        <span class="event-card-map-links">
+                                            <a href="{{ path('event_show', {id: event.id}) }}#event-location-map" class="event-mini-map-link">View Map</a>
+                                            {% if event.directionsUrl %}
+                                                &middot; <a href="{{ event.directionsUrl }}" target="_blank" rel="noopener noreferrer" class="event-mini-map-link">Directions &nearr;</a>
+                                            {% endif %}
+                                        </span>
                                     </span>
                                 </div>
                             {% endif %}

@@ -1,0 +1,528 @@
+{#
+    Reusable Interactive Visual Seat Position Editor (Drag-and-Drop + Click)
+    Variables:
+      - editor_id: unique string id (e.g. 'standalone-seat-editor' or 'form-seat-editor')
+      - hidden_input_selector: CSS selector for the hidden JSON input storing seat_map_config
+      - layout_select_selector: CSS selector for the layout <select>
+      - rows_input_selector: CSS selector for the rows <input>
+      - cols_input_selector: CSS selector for the cols <input>
+      - total_seats_input_selector: optional CSS selector for totalSeats <input> (synced live)
+      - total_pill_selector: optional CSS selector for seat count badge
+      - initial_config: ?array ({ stage_position, rows, cols, cells })
+      - taken_seats: list<string> (booked seat labels locked from deletion)
+#}
+<div
+    class="seat-pos-editor"
+    id="{{ editor_id }}"
+    data-hidden-input="{{ hidden_input_selector }}"
+    data-layout-select="{{ layout_select_selector }}"
+    data-rows-input="{{ rows_input_selector }}"
+    data-cols-input="{{ cols_input_selector }}"
+    data-total-input="{{ total_seats_input_selector|default('') }}"
+    data-total-pill="{{ total_pill_selector|default('') }}"
+>
+    <div class="seat-editor-toolbar" role="toolbar" aria-label="Seat position editor tools">
+        <div class="seat-editor-tool-group">
+            <span class="seat-editor-group-label">Mode:</span>
+            <button type="button" class="seat-tool-btn is-active" data-tool="move">
+                Move / Drag Seat
+            </button>
+            <button type="button" class="seat-tool-btn" data-tool="toggle">
+                Add / Remove Seat
+            </button>
+            <button type="button" class="seat-tool-btn zone-pill-royal" data-tool="paint:backstage_pass">
+                Royal 149$
+            </button>
+            <button type="button" class="seat-tool-btn zone-pill-vip" data-tool="paint:vip_pass">
+                VIP 79$
+            </button>
+            <button type="button" class="seat-tool-btn zone-pill-preferred" data-tool="paint:full_pass">
+                Pref 39$
+            </button>
+            <button type="button" class="seat-tool-btn zone-pill-standard" data-tool="paint:day_pass">
+                Std 19$
+            </button>
+        </div>
+
+        <div class="seat-editor-tool-group">
+            <span class="seat-editor-group-label">Stage:</span>
+            <button type="button" class="seat-stage-btn is-active" data-stage-pos="top">Top</button>
+            <button type="button" class="seat-stage-btn" data-stage-pos="bottom">Bottom</button>
+            <button type="button" class="seat-stage-btn" data-stage-pos="left">Left</button>
+            <button type="button" class="seat-stage-btn" data-stage-pos="right">Right</button>
+        </div>
+
+        <div class="seat-editor-tool-group">
+            <button type="button" class="btn btn-secondary btn-sm" data-action="apply-preset">
+                Reset to Preset
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="auto-relabel">
+                Auto-Number
+            </button>
+        </div>
+    </div>
+
+    <div class="seat-editor-hint" data-role="status-hint">
+        <strong>Move / Drag Mode:</strong> Drag any seat onto an empty slot to reposition it, drag onto another seat to swap, or click a seat then click where to move it.
+    </div>
+
+    <div class="seat-map-viewport">
+        <div class="seat-editor-canvas" data-role="canvas"></div>
+    </div>
+
+    <div class="seat-editor-footer">
+        <span data-role="summary-text" style="font-size:0.82rem;font-weight:700;color:var(--text-secondary);"></span>
+        <div class="seat-legend" style="margin:0;">
+            <span class="seat-legend-item"><span class="seat-swatch zone-royal"></span>Royal (149$)</span>
+            <span class="seat-legend-item"><span class="seat-swatch zone-vip"></span>VIP (79$)</span>
+            <span class="seat-legend-item"><span class="seat-swatch zone-preferred"></span>Preferred (39$)</span>
+            <span class="seat-legend-item"><span class="seat-swatch zone-standard"></span>Standard (19$)</span>
+            <span class="seat-legend-item"><span class="seat-swatch is-taken"></span>Booked (Locked)</span>
+        </div>
+    </div>
+</div>
+
+<script type="application/json" id="{{ editor_id }}-initial-data">{{ {
+    config: initial_config|default(null),
+    taken: taken_seats|default([])
+}|json_encode|raw }}</script>
+
+<script>
+(function () {
+    function initSeatPositionEditor() {
+        var root = document.getElementById('{{ editor_id }}');
+        if (!root || root.dataset.editorBound === '1') return;
+        root.dataset.editorBound = '1';
+
+        var dataEl = document.getElementById('{{ editor_id }}-initial-data');
+        var payload = { config: null, taken: [] };
+        try {
+            if (dataEl) payload = JSON.parse(dataEl.textContent || '{}');
+        } catch (e) {}
+
+        var takenSet = new Set((payload.taken || []).map(function (s) { return String(s).toUpperCase(); }));
+        var hiddenInput = document.querySelector(root.getAttribute('data-hidden-input'));
+        var layoutSelect = document.querySelector(root.getAttribute('data-layout-select'));
+        var rowsInput = document.querySelector(root.getAttribute('data-rows-input'));
+        var colsInput = document.querySelector(root.getAttribute('data-cols-input'));
+        var totalInput = root.getAttribute('data-total-input') ? document.querySelector(root.getAttribute('data-total-input')) : null;
+        var totalPill = root.getAttribute('data-total-pill') ? document.querySelector(root.getAttribute('data-total-pill')) : null;
+        var canvas = root.querySelector('[data-role="canvas"]');
+        var statusHint = root.querySelector('[data-role="status-hint"]');
+        var summaryText = root.querySelector('[data-role="summary-text"]');
+
+        var activeTool = 'move';
+        var selectedMoveCoord = null;
+        var dragSourceCoord = null;
+        var state = {
+            stage_position: 'top',
+            rows: 8,
+            cols: 10,
+            grid: {} // "r:c" => { label, tier }
+        };
+
+        var stageLabels = {
+            theatre: 'GRAND STAGE',
+            saloon: 'FRONT STAGE / PODIUM',
+            building: 'MAIN STAGE / HALL FRONT',
+            festival: 'MAIN FESTIVAL STAGE'
+        };
+
+        var zoneClassByTier = {
+            backstage_pass: 'zone-royal',
+            vip_pass: 'zone-vip',
+            full_pass: 'zone-preferred',
+            day_pass: 'zone-standard'
+        };
+
+        function clamp(v, min, max, fallback) {
+            var n = parseInt(v, 10);
+            return isNaN(n) ? fallback : Math.max(min, Math.min(max, n));
+        }
+
+        function rowLetter(r) {
+            return String.fromCharCode(65 + Math.max(0, Math.min(25, r)));
+        }
+
+        function defaultTierForRow(r, totalRows) {
+            if (totalRows <= 1) return 'day_pass';
+            if (totalRows === 2) return r === 0 ? 'full_pass' : 'day_pass';
+            if (totalRows === 3) return r === 0 ? 'vip_pass' : (r === 1 ? 'full_pass' : 'day_pass');
+            if (r === 0) return 'backstage_pass';
+            var vipEnd = totalRows >= 9 ? 2 : 1;
+            if (r <= vipEnd) return 'vip_pass';
+            var prefEnd = Math.max(vipEnd + 1, Math.floor(totalRows * 0.6) - 1);
+            return r <= prefEnd ? 'full_pass' : 'day_pass';
+        }
+
+        function computeAisles(layout, seatsPerRow) {
+            if (seatsPerRow <= 3) return [];
+            if (layout === 'saloon') return [Math.floor(seatsPerRow / 2)];
+            if (layout === 'theatre') {
+                if (seatsPerRow >= 7) {
+                    var s = Math.max(2, Math.floor(seatsPerRow / 4));
+                    return [s, seatsPerRow - s];
+                }
+                return [Math.floor(seatsPerRow / 2)];
+            }
+            if (seatsPerRow >= 9) {
+                var b = Math.max(3, Math.floor(seatsPerRow / 3));
+                if (seatsPerRow - b > b) return [b, seatsPerRow - b];
+            }
+            return [Math.floor(seatsPerRow / 2)];
+        }
+
+        function buildFromPreset() {
+            var rows = clamp(rowsInput ? rowsInput.value : 8, 1, 26, 8);
+            var seatsPerRow = clamp(colsInput ? colsInput.value : 10, 2, 20, 10);
+            var layout = layoutSelect ? layoutSelect.value : 'theatre';
+            var aisles = computeAisles(layout, seatsPerRow);
+            var useAisleCols = (seatsPerRow + aisles.length) <= 24;
+            var cols = useAisleCols ? (seatsPerRow + aisles.length) : seatsPerRow;
+
+            var newGrid = {};
+            var placedLabels = new Set();
+
+            for (var r = 0; r < rows; r++) {
+                var letter = rowLetter(r);
+                var tier = defaultTierForRow(r, rows);
+                var colCursor = 0;
+                for (var s = 1; s <= seatsPerRow; s++) {
+                    var lbl = letter + s;
+                    newGrid[r + ':' + colCursor] = { label: lbl, tier: tier };
+                    placedLabels.add(lbl);
+                    colCursor++;
+                    if (useAisleCols && aisles.indexOf(s) !== -1) {
+                        colCursor++;
+                    }
+                }
+            }
+
+            // Preserve any booked seats that fell outside new preset
+            takenSet.forEach(function (bookedLabel) {
+                if (placedLabels.has(bookedLabel)) return;
+                for (var rr = 0; rr < rows; rr++) {
+                    for (var cc = 0; cc < cols; cc++) {
+                        if (!newGrid[rr + ':' + cc]) {
+                            newGrid[rr + ':' + cc] = { label: bookedLabel, tier: defaultTierForRow(rr, rows) };
+                            placedLabels.add(bookedLabel);
+                            return;
+                        }
+                    }
+                }
+            });
+
+            state.rows = rows;
+            state.cols = cols;
+            state.grid = newGrid;
+            selectedMoveCoord = null;
+            syncAndRender();
+        }
+
+        function loadInitialConfig() {
+            if (payload.config && Array.isArray(payload.config.cells) && payload.config.cells.length > 0) {
+                state.stage_position = payload.config.stage_position || 'top';
+                state.rows = clamp(payload.config.rows, 1, 26, 8);
+                state.cols = clamp(payload.config.cols, 2, 24, 10);
+                state.grid = {};
+                payload.config.cells.forEach(function (cell) {
+                    state.grid[cell.r + ':' + cell.c] = {
+                        label: String(cell.label).toUpperCase(),
+                        tier: cell.tier || defaultTierForRow(cell.r, state.rows)
+                    };
+                });
+                syncAndRender();
+            } else {
+                buildFromPreset();
+            }
+        }
+
+        function generateUniqueLabel(r, c) {
+            var existing = new Set(Object.values(state.grid).map(function (v) { return v.label; }));
+            var letter = rowLetter(r);
+            var candidate = letter + (c + 1);
+            if (!existing.has(candidate)) return candidate;
+            for (var n = 1; n <= 99; n++) {
+                var alt = letter + n;
+                if (!existing.has(alt)) return alt;
+            }
+            return 'S' + Math.floor(Math.random() * 900 + 100);
+        }
+
+        function autoRelabelUnbooked() {
+            var used = new Set();
+            Object.values(state.grid).forEach(function (cell) {
+                if (takenSet.has(cell.label)) used.add(cell.label);
+            });
+
+            for (var r = 0; r < state.rows; r++) {
+                var letter = rowLetter(r);
+                var seatNum = 1;
+                for (var c = 0; c < state.cols; c++) {
+                    var key = r + ':' + c;
+                    var cell = state.grid[key];
+                    if (!cell || takenSet.has(cell.label)) continue;
+                    while (used.has(letter + seatNum)) seatNum++;
+                    cell.label = letter + seatNum;
+                    used.add(cell.label);
+                    seatNum++;
+                }
+            }
+            syncAndRender();
+        }
+
+        function moveOrSwap(fromKey, toKey) {
+            if (!fromKey || !toKey || fromKey === toKey) return;
+            var fromSeat = state.grid[fromKey];
+            if (!fromSeat) return;
+            var toSeat = state.grid[toKey];
+            if (toSeat) {
+                state.grid[fromKey] = toSeat;
+                state.grid[toKey] = fromSeat;
+            } else {
+                state.grid[toKey] = fromSeat;
+                delete state.grid[fromKey];
+            }
+            selectedMoveCoord = null;
+            syncAndRender();
+        }
+
+        function handleCellClick(r, c) {
+            var key = r + ':' + c;
+            var existing = state.grid[key];
+
+            if (activeTool === 'move') {
+                if (!selectedMoveCoord) {
+                    if (existing) {
+                        selectedMoveCoord = key;
+                        renderCanvas();
+                    }
+                } else if (selectedMoveCoord === key) {
+                    selectedMoveCoord = null;
+                    renderCanvas();
+                } else {
+                    moveOrSwap(selectedMoveCoord, key);
+                }
+                return;
+            }
+
+            if (activeTool === 'toggle') {
+                if (existing) {
+                    if (takenSet.has(existing.label)) {
+                        if (statusHint) {
+                            statusHint.innerHTML = '<strong>Seat ' + existing.label + ' is already booked</strong> by a customer, so it cannot be deleted (switch to <strong>Move / Drag Seat</strong> if you want to reposition it).';
+                        }
+                        return;
+                    }
+                    delete state.grid[key];
+                } else {
+                    state.grid[key] = {
+                        label: generateUniqueLabel(r, c),
+                        tier: defaultTierForRow(r, state.rows)
+                    };
+                }
+                syncAndRender();
+                return;
+            }
+
+            if (activeTool.indexOf('paint:') === 0 && existing) {
+                existing.tier = activeTool.slice(6);
+                syncAndRender();
+            }
+        }
+
+        function serializeToHidden() {
+            var cells = [];
+            for (var r = 0; r < state.rows; r++) {
+                for (var c = 0; c < state.cols; c++) {
+                    var cell = state.grid[r + ':' + c];
+                    if (cell) {
+                        cells.push({ r: r, c: c, label: cell.label, tier: cell.tier });
+                    }
+                }
+            }
+
+            if (hiddenInput) {
+                hiddenInput.value = JSON.stringify({
+                    stage_position: state.stage_position,
+                    rows: state.rows,
+                    cols: state.cols,
+                    cells: cells
+                });
+            }
+
+            var totalSeats = cells.length;
+            if (totalInput && totalInput.readOnly) {
+                totalInput.value = String(totalSeats);
+            }
+            if (totalPill) {
+                totalPill.textContent = totalSeats + ' Mapped Seats';
+            }
+            if (summaryText) {
+                summaryText.textContent = totalSeats + ' active seats on ' + state.rows + '×' + state.cols + ' grid · Stage: ' + state.stage_position.toUpperCase();
+            }
+        }
+
+        function renderCanvas() {
+            if (!canvas) return;
+            var layout = layoutSelect ? layoutSelect.value : 'theatre';
+            var stageText = stageLabels[layout] || 'STAGE';
+            var pos = state.stage_position;
+
+            var stageTopHtml = pos === 'top'
+                ? '<div class="seat-map-stage-bar' + (layout === 'saloon' ? ' is-cabin' : '') + '"><span>' + stageText + '</span></div>'
+                : '';
+            var stageBottomHtml = pos === 'bottom'
+                ? '<div class="seat-map-stage-bar seat-map-stage-bottom' + (layout === 'saloon' ? ' is-cabin' : '') + '"><span>' + stageText + '</span></div>'
+                : '';
+            var stageLeftHtml = pos === 'left' ? '<div class="seat-map-stage-side"><span>' + stageText + '</span></div>' : '';
+            var stageRightHtml = pos === 'right' ? '<div class="seat-map-stage-side"><span>' + stageText + '</span></div>' : '';
+
+            var rowsHtml = '';
+            for (var r = 0; r < state.rows; r++) {
+                var letter = rowLetter(r);
+                rowsHtml += '<div class="seat-row"><span class="seat-row-label">' + letter + '</span><div class="seat-row-seats">';
+                for (var c = 0; c < state.cols; c++) {
+                    var key = r + ':' + c;
+                    var cell = state.grid[key];
+                    if (cell) {
+                        var isBooked = takenSet.has(cell.label);
+                        var isMoving = selectedMoveCoord === key;
+                        var zClass = zoneClassByTier[cell.tier] || 'zone-standard';
+                        rowsHtml += '<button type="button" draggable="true"'
+                            + ' class="seat-btn seat-editor-cell ' + zClass + (isBooked ? ' is-editor-booked' : '') + (isMoving ? ' is-move-source' : '') + '"'
+                            + ' data-r="' + r + '" data-c="' + c + '" data-has-seat="1"'
+                            + ' title="Seat ' + cell.label + (isBooked ? ' (Booked — can move, cannot delete)' : ' — drag or click') + '">'
+                            + '<span>' + cell.label + '</span></button>';
+                    } else {
+                        rowsHtml += '<button type="button"'
+                            + ' class="seat-editor-empty-slot' + (selectedMoveCoord ? ' is-drop-ready' : '') + '"'
+                            + ' data-r="' + r + '" data-c="' + c + '" data-has-seat="0"'
+                            + ' title="Empty space / aisle (Row ' + letter + ', Col ' + (c + 1) + ')">'
+                            + '<span>' + (activeTool === 'toggle' ? '+' : '·') + '</span></button>';
+                    }
+                }
+                rowsHtml += '</div><span class="seat-row-label">' + letter + '</span></div>';
+            }
+
+            canvas.innerHTML = '<div class="seat-map-cabin' + (layout === 'saloon' ? ' is-cabin' : '') + ' stage-pos-' + pos + '">'
+                + stageTopHtml
+                + '<div class="seat-map-stage-row stage-pos-' + pos + '">'
+                + stageLeftHtml
+                + '<div class="seat-map-grid">' + rowsHtml + '</div>'
+                + stageRightHtml
+                + '</div>'
+                + stageBottomHtml
+                + '</div>';
+
+            root.querySelectorAll('.seat-stage-btn').forEach(function (b) {
+                b.classList.toggle('is-active', b.getAttribute('data-stage-pos') === state.stage_position);
+            });
+        }
+
+        function syncAndRender() {
+            serializeToHidden();
+            renderCanvas();
+        }
+
+        // Event delegation for clicking & drag-and-drop on grid cells
+        canvas.addEventListener('click', function (e) {
+            var btn = e.target.closest('button[data-r][data-c]');
+            if (!btn) return;
+            handleCellClick(parseInt(btn.getAttribute('data-r'), 10), parseInt(btn.getAttribute('data-c'), 10));
+        });
+
+        canvas.addEventListener('dragstart', function (e) {
+            var btn = e.target.closest('button[data-has-seat="1"]');
+            if (!btn) {
+                e.preventDefault();
+                return;
+            }
+            dragSourceCoord = btn.getAttribute('data-r') + ':' + btn.getAttribute('data-c');
+            btn.classList.add('is-move-source');
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', dragSourceCoord);
+            }
+        });
+
+        canvas.addEventListener('dragover', function (e) {
+            var target = e.target.closest('button[data-r][data-c]');
+            if (!target || !dragSourceCoord) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            target.classList.add('is-drag-over');
+        });
+
+        canvas.addEventListener('dragleave', function (e) {
+            var target = e.target.closest('button[data-r][data-c]');
+            if (target) target.classList.remove('is-drag-over');
+        });
+
+        canvas.addEventListener('drop', function (e) {
+            var target = e.target.closest('button[data-r][data-c]');
+            if (!target || !dragSourceCoord) return;
+            e.preventDefault();
+            target.classList.remove('is-drag-over');
+            var toCoord = target.getAttribute('data-r') + ':' + target.getAttribute('data-c');
+            var fromCoord = dragSourceCoord;
+            dragSourceCoord = null;
+            moveOrSwap(fromCoord, toCoord);
+        });
+
+        canvas.addEventListener('dragend', function () {
+            dragSourceCoord = null;
+            canvas.querySelectorAll('.is-drag-over').forEach(function (el) { el.classList.remove('is-drag-over'); });
+        });
+
+        // Toolbar buttons
+        var hintsByTool = {
+            move: '<strong>Move / Drag Mode:</strong> Drag any seat onto an empty slot to reposition it, drag onto another seat to swap, or click a seat then click where to move it.',
+            toggle: '<strong>Add / Remove Mode:</strong> Click any empty slot (+) to place a seat, or click an unbooked seat to turn it into an aisle / empty space.',
+            'paint:backstage_pass': '<strong>Zone Brush (Royal 149$):</strong> Click any seat to assign it to Royal Box (149$).',
+            'paint:vip_pass': '<strong>Zone Brush (VIP 79$):</strong> Click any seat to assign it to VIP Lounge (79$).',
+            'paint:full_pass': '<strong>Zone Brush (Preferred 39$):</strong> Click any seat to assign it to Preferred Front-Zone (39$).',
+            'paint:day_pass': '<strong>Zone Brush (Standard 19$):</strong> Click any seat to assign it to Standard Seat (19$).'
+        };
+
+        root.querySelectorAll('.seat-tool-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                activeTool = btn.getAttribute('data-tool') || 'move';
+                selectedMoveCoord = null;
+                root.querySelectorAll('.seat-tool-btn').forEach(function (b) {
+                    b.classList.toggle('is-active', b === btn);
+                });
+                if (statusHint && hintsByTool[activeTool]) {
+                    statusHint.innerHTML = hintsByTool[activeTool];
+                }
+                renderCanvas();
+            });
+        });
+
+        root.querySelectorAll('.seat-stage-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                state.stage_position = btn.getAttribute('data-stage-pos') || 'top';
+                syncAndRender();
+            });
+        });
+
+        var presetBtn = root.querySelector('[data-action="apply-preset"]');
+        if (presetBtn) presetBtn.addEventListener('click', buildFromPreset);
+
+        var relabelBtn = root.querySelector('[data-action="auto-relabel"]');
+        if (relabelBtn) relabelBtn.addEventListener('click', autoRelabelUnbooked);
+
+        // Expose rebuild hook for parent builder form
+        root.rebuildFromPreset = buildFromPreset;
+        root.syncHiddenConfig = serializeToHidden;
+
+        loadInitialConfig();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSeatPositionEditor);
+    } else {
+        initSeatPositionEditor();
+    }
+})();
+</script>

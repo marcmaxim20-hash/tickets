@@ -32,13 +32,31 @@ services:
       APP_SECRET: f8b74e29c10a63d49518e2a7c4b9f012
       DATABASE_URL: "mysql://ticket_user:ticket_password@database:3306/ticketing_db?serverVersion=8.0&charset=utf8mb4"
       ADMIN_USERNAME: "admin@swiftdesk.local"
-      ADMIN_PASSWORD: "Admin2026!"
+      ADMIN_PASSWORD: "1234"
       ADMIN_ACCESS_CODE: "1234"
       ORGANIZER_REGISTRATION_CODE: "1111"
     ports:
       - "8080:80"
     volumes:
       - ./:/var/www/html
+
+  e2e:
+    build:
+      context: ./e2e
+      dockerfile: Dockerfile
+    profiles: ["e2e"]
+    depends_on:
+      - web
+      - database
+    environment:
+      E2E_BASE_URL: "http://web"
+      DB_HOST: "database"
+      DB_PORT: "3306"
+      DB_USER: "ticket_user"
+      DB_PASSWORD: "ticket_password"
+      DB_NAME: "ticketing_db"
+    volumes:
+      - ./e2e:/e2e
 
 volumes:
   ticket_mysql_data:

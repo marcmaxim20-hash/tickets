@@ -20,8 +20,22 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 class Event
 {
     public const CATEGORY_CONCERT = 'concert';
-    public const CATEGORY_THEATRE = 'theatre';
     public const CATEGORY_FESTIVAL = 'festival';
+    public const CATEGORY_THEATRE = 'theatre';
+    public const CATEGORY_CINEMA = 'cinema';
+    public const CATEGORY_COMEDY = 'comedy';
+    public const CATEGORY_SPORTS = 'sports';
+    public const CATEGORY_SALOON = 'saloon';
+    public const CATEGORY_BUILDING = 'building';
+    public const CATEGORY_CONFERENCE = 'conference';
+    public const CATEGORY_WORKSHOP = 'workshop';
+    public const CATEGORY_NIGHTLIFE = 'nightlife';
+    public const CATEGORY_EXHIBITION = 'exhibition';
+
+    public const LAYOUT_THEATRE = 'theatre';
+    public const LAYOUT_SALOON = 'saloon';
+    public const LAYOUT_BUILDING = 'building';
+    public const LAYOUT_FESTIVAL = 'festival';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -34,7 +48,20 @@ class Event
     private string $title = '';
 
     #[ORM\Column(length: 32)]
-    #[Assert\Choice(choices: [self::CATEGORY_CONCERT, self::CATEGORY_THEATRE, self::CATEGORY_FESTIVAL])]
+    #[Assert\Choice(choices: [
+        self::CATEGORY_CONCERT,
+        self::CATEGORY_FESTIVAL,
+        self::CATEGORY_THEATRE,
+        self::CATEGORY_CINEMA,
+        self::CATEGORY_COMEDY,
+        self::CATEGORY_SPORTS,
+        self::CATEGORY_SALOON,
+        self::CATEGORY_BUILDING,
+        self::CATEGORY_CONFERENCE,
+        self::CATEGORY_WORKSHOP,
+        self::CATEGORY_NIGHTLIFE,
+        self::CATEGORY_EXHIBITION,
+    ])]
     private string $category = self::CATEGORY_FESTIVAL;
 
     #[ORM\Column(length: 180)]
@@ -54,6 +81,39 @@ class Event
     #[ORM\Column(name: 'total_seats')]
     #[Assert\Positive(message: 'Total seats must be at least 1.')]
     private int $totalSeats = 100;
+
+    #[ORM\Column(name: 'seat_map_enabled', options: ['default' => true])]
+    private bool $seatMapEnabled = true;
+
+    #[ORM\Column(name: 'seat_map_layout', length: 32, options: ['default' => self::LAYOUT_THEATRE])]
+    #[Assert\Choice(choices: [
+        self::LAYOUT_THEATRE,
+        self::LAYOUT_SALOON,
+        self::LAYOUT_BUILDING,
+        self::LAYOUT_FESTIVAL,
+    ])]
+    private string $seatMapLayout = self::LAYOUT_THEATRE;
+
+    #[ORM\Column(name: 'seat_rows', options: ['default' => 8])]
+    #[Assert\Range(min: 1, max: 26, notInRangeMessage: 'Seat map rows must be between {{ min }} and {{ max }} (A–Z).')]
+    private int $seatRows = 8;
+
+    #[ORM\Column(name: 'seats_per_row', options: ['default' => 10])]
+    #[Assert\Range(min: 2, max: 20, notInRangeMessage: 'Seats per row must be between {{ min }} and {{ max }}.')]
+    private int $seatsPerRow = 10;
+
+    /**
+     * Optional custom seat map layout (stage_position + exact cell positions/labels/tiers).
+     *
+     * @var ?array{
+     *     stage_position?: string,
+     *     rows?: int,
+     *     cols?: int,
+     *     cells?: list<array{r: int, c: int, label: string, tier: string}>
+     * }
+     */
+    #[ORM\Column(name: 'seat_map_config', type: Types::JSON, nullable: true)]
+    private ?array $seatMapConfig = null;
 
     #[ORM\Column(type: Types::TEXT)]
     #[Assert\NotBlank(message: 'Please enter a short description of the event.')]
@@ -105,9 +165,45 @@ class Event
     {
         return [
             self::CATEGORY_CONCERT => 'Concert',
-            self::CATEGORY_THEATRE => 'Theatre',
             self::CATEGORY_FESTIVAL => 'Festival',
+            self::CATEGORY_THEATRE => 'Theatre',
+            self::CATEGORY_CINEMA => 'Cinema / Movie',
+            self::CATEGORY_COMEDY => 'Comedy / Stand-Up',
+            self::CATEGORY_SPORTS => 'Sports & Stadium',
+            self::CATEGORY_SALOON => 'Saloon / Hall',
+            self::CATEGORY_BUILDING => 'Indoor Building',
+            self::CATEGORY_CONFERENCE => 'Conference & Talk',
+            self::CATEGORY_WORKSHOP => 'Workshop & Class',
+            self::CATEGORY_NIGHTLIFE => 'Club & Nightlife',
+            self::CATEGORY_EXHIBITION => 'Art & Exhibition',
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function getAvailableSeatMapLayouts(): array
+    {
+        return [
+            self::LAYOUT_THEATRE => 'Theatre / Auditorium (2 Aisles)',
+            self::LAYOUT_SALOON => 'Saloon / Hall (Airplane Center Aisle)',
+            self::LAYOUT_BUILDING => 'Indoor Building / Arena Hall',
+            self::LAYOUT_FESTIVAL => 'Festival / Seated Arena (Wide Aisles)',
+        ];
+    }
+
+    public function isIndoorCategory(): bool
+    {
+        return in_array($this->category, [
+            self::CATEGORY_THEATRE,
+            self::CATEGORY_CINEMA,
+            self::CATEGORY_COMEDY,
+            self::CATEGORY_SALOON,
+            self::CATEGORY_BUILDING,
+            self::CATEGORY_CONFERENCE,
+            self::CATEGORY_WORKSHOP,
+            self::CATEGORY_EXHIBITION,
+        ], true);
     }
 
     public function getId(): ?int
@@ -170,7 +266,7 @@ class Event
         return $this;
     }
 
-    public function getMapsUrl(): ?string
+    public function getFullAddressQuery(): ?string
     {
         $queryParts = [];
         if ($this->venue !== '') {
@@ -184,7 +280,37 @@ class Event
             return null;
         }
 
-        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(implode(', ', $queryParts));
+        return implode(', ', $queryParts);
+    }
+
+    public function getMapsUrl(): ?string
+    {
+        $query = $this->getFullAddressQuery();
+        if ($query === null) {
+            return null;
+        }
+
+        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($query);
+    }
+
+    public function getDirectionsUrl(): ?string
+    {
+        $query = $this->getFullAddressQuery();
+        if ($query === null) {
+            return null;
+        }
+
+        return 'https://www.google.com/maps/dir/?api=1&destination=' . rawurlencode($query);
+    }
+
+    public function getMapsEmbedUrl(): ?string
+    {
+        $query = $this->getFullAddressQuery();
+        if ($query === null) {
+            return null;
+        }
+
+        return 'https://maps.google.com/maps?q=' . rawurlencode($query) . '&t=&z=15&ie=UTF8&iwloc=&output=embed';
     }
 
     public function getOrganizer(): ?Customer
@@ -207,6 +333,107 @@ class Event
     public function setTotalSeats(int $totalSeats): self
     {
         $this->totalSeats = max(1, $totalSeats);
+
+        return $this;
+    }
+
+    public function isSeatMapEnabled(): bool
+    {
+        return $this->seatMapEnabled;
+    }
+
+    public function setSeatMapEnabled(bool $seatMapEnabled): self
+    {
+        $this->seatMapEnabled = $seatMapEnabled;
+
+        return $this;
+    }
+
+    public function getSeatMapLayout(): string
+    {
+        return $this->seatMapLayout;
+    }
+
+    public function getSeatMapLayoutLabel(): string
+    {
+        return self::getAvailableSeatMapLayouts()[$this->seatMapLayout] ?? 'Theatre / Auditorium';
+    }
+
+    public function setSeatMapLayout(string $seatMapLayout): self
+    {
+        if (array_key_exists($seatMapLayout, self::getAvailableSeatMapLayouts())) {
+            $this->seatMapLayout = $seatMapLayout;
+        }
+
+        return $this;
+    }
+
+    public function getSeatRows(): int
+    {
+        return $this->seatRows;
+    }
+
+    public function setSeatRows(int $seatRows): self
+    {
+        $this->seatRows = max(1, min(26, $seatRows));
+
+        return $this;
+    }
+
+    public function getSeatsPerRow(): int
+    {
+        return $this->seatsPerRow;
+    }
+
+    public function setSeatsPerRow(int $seatsPerRow): self
+    {
+        $this->seatsPerRow = max(2, min(20, $seatsPerRow));
+
+        return $this;
+    }
+
+    /**
+     * @return ?array{
+     *     stage_position?: string,
+     *     rows?: int,
+     *     cols?: int,
+     *     cells?: list<array{r: int, c: int, label: string, tier: string}>
+     * }
+     */
+    public function getSeatMapConfig(): ?array
+    {
+        return $this->seatMapConfig;
+    }
+
+    /**
+     * @param ?array{
+     *     stage_position?: string,
+     *     rows?: int,
+     *     cols?: int,
+     *     cells?: list<array{r: int, c: int, label: string, tier: string}>
+     * } $seatMapConfig
+     */
+    public function setSeatMapConfig(?array $seatMapConfig): self
+    {
+        $this->seatMapConfig = $seatMapConfig;
+
+        return $this;
+    }
+
+    public function syncTotalSeatsFromSeatMap(): self
+    {
+        if ($this->seatMapEnabled) {
+            if (
+                is_array($this->seatMapConfig)
+                && isset($this->seatMapConfig['cells'])
+                && is_array($this->seatMapConfig['cells'])
+                && count($this->seatMapConfig['cells']) > 0
+            ) {
+                $this->totalSeats = count($this->seatMapConfig['cells']);
+            } else {
+                $this->totalSeats = $this->seatRows * $this->seatsPerRow;
+            }
+        }
 
         return $this;
     }
@@ -275,6 +502,15 @@ class Event
         return match ($this->category) {
             self::CATEGORY_CONCERT => '/images/events/concert-arena.svg',
             self::CATEGORY_THEATRE => '/images/events/theatre-grand.svg',
+            self::CATEGORY_CINEMA => '/images/events/cinema-screen.svg',
+            self::CATEGORY_COMEDY => '/images/events/comedy-club.svg',
+            self::CATEGORY_SPORTS => '/images/events/sports-stadium.svg',
+            self::CATEGORY_SALOON => '/images/events/saloon-hall.svg',
+            self::CATEGORY_BUILDING => '/images/events/building-venue.svg',
+            self::CATEGORY_CONFERENCE => '/images/events/conference-summit.svg',
+            self::CATEGORY_WORKSHOP => '/images/events/workshop-studio.svg',
+            self::CATEGORY_NIGHTLIFE => '/images/events/nightlife-club.svg',
+            self::CATEGORY_EXHIBITION => '/images/events/art-exhibition.svg',
             default => '/images/events/festival-sunset.svg',
         };
     }

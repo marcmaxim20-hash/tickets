@@ -17,6 +17,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(name: 'idx_tickets_customer', columns: ['customer_id'])]
 #[ORM\Index(name: 'idx_tickets_event', columns: ['event_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_tickets_qr_token', columns: ['qr_token'])]
+#[ORM\UniqueConstraint(name: 'uniq_tickets_event_seat', columns: ['event_id', 'seat_label'])]
 class Ticket
 {
     public const STATUS_OPEN = 'open';
@@ -73,6 +74,10 @@ class Ticket
     #[ORM\ManyToOne(targetEntity: Event::class, inversedBy: 'tickets')]
     #[ORM\JoinColumn(name: 'event_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?Event $event = null;
+
+    #[ORM\Column(name: 'seat_label', length: 16, nullable: true)]
+    #[Assert\Length(max: 16)]
+    private ?string $seatLabel = null;
 
     #[ORM\Column(name: 'created_at')]
     private \DateTimeImmutable $createdAt;
@@ -274,6 +279,23 @@ class Ticket
     public function setEvent(?Event $event): self
     {
         $this->event = $event;
+
+        return $this;
+    }
+
+    public function getSeatLabel(): ?string
+    {
+        return $this->seatLabel;
+    }
+
+    public function setSeatLabel(?string $seatLabel): self
+    {
+        if ($seatLabel === null) {
+            $this->seatLabel = null;
+        } else {
+            $normalized = strtoupper(trim($seatLabel));
+            $this->seatLabel = $normalized !== '' ? $normalized : null;
+        }
 
         return $this;
     }

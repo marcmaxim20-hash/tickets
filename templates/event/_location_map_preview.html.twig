@@ -1,0 +1,60 @@
+{# Live Address Map Preview for Organizer & Admin Create/Edit Event Forms #}
+<div id="event-address-map-preview" class="form-map-preview" {{ event.location ? '' : 'hidden' }}>
+    <div class="form-map-preview-header">
+        <span class="meta-label" style="display:inline-flex;align-items:center;gap:0.35rem;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>Live Location Map Preview</span>
+        </span>
+        <span id="form-map-address-text" style="font-size:0.8rem;color:var(--text-secondary);font-weight:600;">{{ event.location }}</span>
+    </div>
+    <iframe
+        id="form-map-preview-iframe"
+        src="{{ event.mapsEmbedUrl|default('') }}"
+        class="form-map-preview-iframe"
+        title="Event location map preview"
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+    ></iframe>
+</div>
+
+<script>
+(function () {
+    function initAddressMapPreview() {
+        var box = document.getElementById('event-address-map-preview');
+        var iframe = document.getElementById('form-map-preview-iframe');
+        var label = document.getElementById('form-map-address-text');
+        var locInput = document.querySelector('input[name$="[location]"]');
+        var venueInput = document.querySelector('input[name$="[venue]"]');
+        if (!box || !iframe || !locInput || box.dataset.mapBound === '1') return;
+        box.dataset.mapBound = '1';
+
+        var timer = null;
+        function updateMap() {
+            var loc = locInput.value.trim();
+            var venue = venueInput ? venueInput.value.trim() : '';
+            if (loc.length < 3) {
+                box.hidden = true;
+                return;
+            }
+            var query = venue && venue.toLowerCase() !== loc.toLowerCase() ? (venue + ', ' + loc) : loc;
+            box.hidden = false;
+            if (label) label.textContent = query;
+            iframe.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(query) + '&t=&z=15&ie=UTF8&iwloc=&output=embed';
+        }
+
+        function scheduleUpdate() {
+            clearTimeout(timer);
+            timer = setTimeout(updateMap, 450);
+        }
+
+        locInput.addEventListener('input', scheduleUpdate);
+        if (venueInput) venueInput.addEventListener('input', scheduleUpdate);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAddressMapPreview);
+    } else {
+        initAddressMapPreview();
+    }
+})();
+</script>

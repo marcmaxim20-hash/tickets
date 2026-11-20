@@ -6,9 +6,11 @@ namespace App\Form;
 
 use App\Entity\Event;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateTimeType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -30,12 +32,8 @@ class EventType extends AbstractType
                 ],
             ])
             ->add('category', ChoiceType::class, [
-                'label' => 'Event Type',
-                'choices' => [
-                    'Concert' => Event::CATEGORY_CONCERT,
-                    'Theatre' => Event::CATEGORY_THEATRE,
-                    'Festival' => Event::CATEGORY_FESTIVAL,
-                ],
+                'label' => 'Event Category',
+                'choices' => array_flip(Event::getAvailableCategories()),
             ])
             ->add('venue', TextType::class, [
                 'label' => 'Place / Venue',
@@ -60,6 +58,39 @@ class EventType extends AbstractType
                     'max' => 100000,
                     'placeholder' => 'e.g., 250',
                 ],
+            ])
+            ->add('seatMapEnabled', CheckboxType::class, [
+                'label' => 'Enable Interactive Seat Map (let buyers pick exact seats like on an airplane / theatre)',
+                'required' => false,
+            ])
+            ->add('seatMapLayout', ChoiceType::class, [
+                'label' => 'Seat Map Layout',
+                'choices' => [
+                    'Theatre / Auditorium (2 Aisles)' => Event::LAYOUT_THEATRE,
+                    'Saloon / Hall (Airplane Center Aisle)' => Event::LAYOUT_SALOON,
+                    'Indoor Building / Arena Hall' => Event::LAYOUT_BUILDING,
+                    'Festival / Seated Arena (Wide Aisles)' => Event::LAYOUT_FESTIVAL,
+                ],
+            ])
+            ->add('seatRows', IntegerType::class, [
+                'label' => 'Number of Rows (A–Z)',
+                'attr' => [
+                    'min' => 1,
+                    'max' => 26,
+                    'placeholder' => 'e.g., 8',
+                ],
+            ])
+            ->add('seatsPerRow', IntegerType::class, [
+                'label' => 'Seats per Row',
+                'attr' => [
+                    'min' => 2,
+                    'max' => 20,
+                    'placeholder' => 'e.g., 10',
+                ],
+            ])
+            ->add('seatMapConfigJson', HiddenType::class, [
+                'mapped' => false,
+                'required' => false,
             ])
             ->add('startDate', DateTimeType::class, [
                 'label' => 'Start Date & Time',

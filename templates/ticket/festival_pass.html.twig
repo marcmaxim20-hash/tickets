@@ -14,9 +14,14 @@
     <div class="pass-card">
         <div class="pass-banner">
             <span class="admin-badge" style="background: rgba(255,255,255,0.18); color: #ffffff; border-color: rgba(255,255,255,0.3);">
-                {% if ticket.event %}{{ ticket.event.categoryLabel }} &middot; {% endif %}Ticket #{{ ticket.id }}
+                {% if ticket.event %}{{ ticket.event.categoryLabel }} &middot; {% endif %}Ticket #{{ ticket.id }}{% if ticket.seatLabel %} &middot; Seat {{ ticket.seatLabel }}{% endif %}
             </span>
             <h1>{{ ticket.event ? ticket.event.title : ticket.title }}</h1>
+            {% if ticket.seatLabel %}
+                <div style="margin: 0.5rem 0 0.55rem;">
+                    <span class="seat-boarding-pill seat-boarding-pill-light">Seat {{ ticket.seatLabel }} &middot; 1 Person Only</span>
+                </div>
+            {% endif %}
             {% if ticket.event %}
                 <p style="margin-bottom:0.3rem;">
                     {{ ticket.event.venue }} &middot; {{ ticket.event.startDate|date('M j, Y H:i') }} &ndash; {{ ticket.event.endDate|date('M j, Y H:i') }}

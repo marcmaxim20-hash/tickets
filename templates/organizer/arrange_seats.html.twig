@@ -1,0 +1,79 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Arrange Seat Positions — {{ event.title }} — Organizer{% endblock %}
+
+{% block body %}
+<div class="container" style="max-width: 1360px;">
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success" role="status">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('warning') %}
+        <div class="alert alert-warning" role="alert">{{ message }}</div>
+    {% endfor %}
+
+    <div class="breadcrumb" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+            <a href="{{ path('event_show', {id: event.id}) }}">&larr; Back to Event Page</a>
+            <a href="{{ path('account_dashboard') }}">Organizer Hub</a>
+        </div>
+        <span class="badge badge-organizer">Organizer: {{ organizer.name }}</span>
+    </div>
+
+    <div class="card no-reveal">
+        <div class="card-header">
+            <div>
+                <h1 class="section-title" style="font-size: 1.35rem;">
+                    Arrange Seat Positions — {{ event.title }}
+                </h1>
+                <p class="section-subtitle">
+                    Drag seats to change their positions, add or remove walkway spaces, move the stage (Top / Bottom / Left / Right), or adjust price zones.
+                </p>
+            </div>
+            <span id="standalone-seat-total-pill" class="badge badge-festival">{{ seat_map.total_seats }} Mapped Seats</span>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ path('organizer_events_seats', {id: event.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('arrange_seats_' ~ event.id) }}">
+                <input type="hidden" name="seat_map_config_json" id="standalone-seat-config-json" value="">
+
+                <div class="form-grid-3" style="margin-bottom: 1.15rem;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="standalone-layout" class="form-label">Base Preset Layout</label>
+                        <select id="standalone-layout" name="seat_map_layout" class="form-select">
+                            {% for layout_key, layout_label in available_layouts %}
+                                <option value="{{ layout_key }}" {{ event.seatMapLayout == layout_key ? 'selected' : '' }}>{{ layout_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="standalone-rows" class="form-label">Grid Rows (1–26)</label>
+                        <input type="number" id="standalone-rows" name="seat_rows" class="form-control" min="1" max="26" value="{{ seat_map.editor_config.rows }}">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="standalone-cols" class="form-label">Seats / Row (for Preset)</label>
+                        <input type="number" id="standalone-cols" name="seats_per_row" class="form-control" min="2" max="20" value="{{ event.seatsPerRow }}">
+                    </div>
+                </div>
+
+                {{ include('event/_seat_position_editor.html.twig', {
+                    editor_id: 'organizer-seat-editor',
+                    hidden_input_selector: '#standalone-seat-config-json',
+                    layout_select_selector: '#standalone-layout',
+                    rows_input_selector: '#standalone-rows',
+                    cols_input_selector: '#standalone-cols',
+                    total_pill_selector: '#standalone-seat-total-pill',
+                    initial_config: seat_map.editor_config,
+                    taken_seats: taken_seats
+                }) }}
+
+                <div class="form-actions" style="margin-top: 1.35rem;">
+                    <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-festival">
+                        Save Seat Positions
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

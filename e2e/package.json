@@ -1,0 +1,12 @@
+{
+  "name": "ticketing-app-e2e",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:list": "playwright test --list"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.52.0",
+    "mysql2": "^3.14.0"
+  }
+}

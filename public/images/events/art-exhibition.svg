@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="aeg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1917"/>
+      <stop offset="55%" stop-color="#9a3412"/>
+      <stop offset="100%" stop-color="#eab308"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#aeg)"/>
+  <rect x="135" y="90" width="145" height="190" rx="8" fill="#fef3c7" opacity="0.2" stroke="#fde68a" stroke-opacity="0.5" stroke-width="4"/>
+  <rect x="328" y="70" width="145" height="210" rx="8" fill="#fef3c7" opacity="0.26" stroke="#fde68a" stroke-opacity="0.6" stroke-width="4"/>
+  <rect x="520" y="90" width="145" height="190" rx="8" fill="#fef3c7" opacity="0.2" stroke="#fde68a" stroke-opacity="0.5" stroke-width="4"/>
+  <rect y="355" width="800" height="95" fill="#1c1917"/>
+  <text x="400" y="408" text-anchor="middle" fill="#fef3c7" font-family="system-ui,sans-serif" font-size="24" font-weight="800" letter-spacing="3">ART &amp; GALLERY EXHIBITION</text>
+</svg>

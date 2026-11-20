@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="55%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#7c2d12"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#cg)"/>
+  <rect x="130" y="55" width="540" height="230" rx="14" fill="#f8fafc" opacity="0.16" stroke="#fde68a" stroke-opacity="0.35" stroke-width="3"/>
+  <polygon points="365,125 365,215 450,170" fill="#fef3c7" opacity="0.72"/>
+  <rect y="355" width="800" height="95" fill="#090d16"/>
+  <text x="400" y="408" text-anchor="middle" fill="#fef3c7" font-family="system-ui,sans-serif" font-size="24" font-weight="800" letter-spacing="3">CINEMA &amp; PREMIERE SCREENING</text>
+</svg>

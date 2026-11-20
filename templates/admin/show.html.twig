@@ -155,6 +155,12 @@
                             <span class="meta-label">Event &amp; Venue</span>
                             <span class="meta-value">{{ ticket.event.title }} &mdash; {{ ticket.event.venue }}</span>
                         </li>
+                        {% if ticket.seatLabel %}
+                            <li>
+                                <span class="meta-label">Reserved Seat</span>
+                                <span class="meta-value"><span class="badge badge-seat-map">Seat {{ ticket.seatLabel }}</span></span>
+                            </li>
+                        {% endif %}
                         {% if ticket.event.location %}
                             <li>
                                 <span class="meta-label">Event Location</span>

@@ -3,7 +3,7 @@
 {% block title %}Create New Event — Organizer — SwiftDesk{% endblock %}
 
 {% block body %}
-<div class="container-narrow" style="max-width: 760px;">
+<div class="container-narrow" style="max-width: 1240px;">
     {% for message in app.flashes('success') %}
         <div class="alert alert-success" role="status">{{ message }}</div>
     {% endfor %}
@@ -20,7 +20,7 @@
         <div class="card-header">
             <div>
                 <h1 class="section-title" style="font-size: 1.35rem;">
-                    Create New Event (Concert, Theatre, or Festival)
+                    Create New Event
                 </h1>
                 <p class="section-subtitle">Add your venue, street address / location so guests know where to go, seat capacity, schedule, and cover photo.</p>
             </div>
@@ -60,7 +60,15 @@
                     {{ form_widget(form.location, {'attr': {'class': 'form-control'}}) }}
                     <div class="form-errors">{{ form_errors(form.location) }}</div>
                     <span class="form-hint">Enter the full street address, neighborhood, or city so attendees know exactly where to go.</span>
+                    {{ include('event/_location_map_preview.html.twig', {event: event}) }}
                 </div>
+
+                {{ include('event/_seat_map_builder.html.twig', {
+                    form: form,
+                    is_edit: false,
+                    initial_seat_config: initial_seat_config|default(null),
+                    taken_seats: taken_seats|default([])
+                }) }}
 
                 <div class="form-grid-2">
                     <div class="form-group">
@@ -103,11 +111,7 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    {{ form_label(form.description, null, {'label_attr': {'class': 'form-label'}}) }}
-                    {{ form_widget(form.description, {'attr': {'class': 'form-control'}}) }}
-                    <div class="form-errors">{{ form_errors(form.description) }}</div>
-                </div>
+                {{ include('event/_ai_description_field.html.twig', {form: form}) }}
 
                 <div class="form-actions">
                     <a href="{{ path('account_dashboard') }}" class="btn btn-secondary">Cancel</a>
@@ -131,8 +135,17 @@ document.addEventListener('DOMContentLoaded', function () {
     var hasCustomImage = false;
     var defaultByCategory = {
         concert: '/images/events/concert-arena.svg',
+        festival: '/images/events/festival-sunset.svg',
         theatre: '/images/events/theatre-grand.svg',
-        festival: '/images/events/festival-sunset.svg'
+        cinema: '/images/events/cinema-screen.svg',
+        comedy: '/images/events/comedy-club.svg',
+        sports: '/images/events/sports-stadium.svg',
+        saloon: '/images/events/saloon-hall.svg',
+        building: '/images/events/building-venue.svg',
+        conference: '/images/events/conference-summit.svg',
+        workshop: '/images/events/workshop-studio.svg',
+        nightlife: '/images/events/nightlife-club.svg',
+        exhibition: '/images/events/art-exhibition.svg'
     };
 
     if (fileInput) {

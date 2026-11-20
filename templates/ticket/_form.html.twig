@@ -32,13 +32,17 @@
         </div>
     </div>
 
+    {{ form_widget(form.seatLabel) }}
+
     <div class="form-group">
-        <label class="form-label">Select Ticket Tier</label>
+        <label class="form-label">
+            {{ seat_map is defined and seat_map ? 'Ticket Tier (Matched to Your Selected Seat Zone)' : 'Select Ticket Tier' }}
+        </label>
         <div class="tier-selector-grid">
             {% for child in form.tierKey %}
                 {% set tier_key = child.vars.value %}
                 {% set tier_info = tiers[tier_key] %}
-                <label class="tier-radio-option">
+                <label class="tier-radio-option" data-tier-card="{{ tier_key }}">
                     {{ form_widget(child, {'attr': {'data-price': tier_info.price_display}}) }}
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
@@ -54,6 +58,20 @@
         </div>
         <div class="form-errors">{{ form_errors(form.tierKey) }}</div>
     </div>
+
+    {% if seat_map is defined and seat_map %}
+        {% if seat_error is defined and seat_error %}
+            <div class="alert alert-error" role="alert" style="margin-top:1rem;margin-bottom:1rem;">{{ seat_error }}</div>
+        {% endif %}
+        <div class="form-group" style="margin-top:1.35rem;margin-bottom:1.5rem;">
+            {{ include('event/_seat_map_picker.html.twig', {
+                event: selected_event,
+                seat_map: seat_map,
+                mode: 'checkout',
+                selected_seat: selected_seat
+            }) }}
+        </div>
+    {% endif %}
 
     <div class="form-group" style="margin-top:1.35rem;">
         {{ form_label(form.contact, 'Account Email', {'label_attr': {'class': 'form-label'}}) }}
@@ -74,14 +92,93 @@
 (() => {
     const btn = document.getElementById('buy-submit-btn');
     const radios = document.querySelectorAll('input[name="ticket[tierKey]"]');
-    const syncPrice = () => {
+    const seatInput = document.querySelector('input[name="ticket[seatLabel]"]');
+    const seatButtons = document.querySelectorAll('.seat-btn[data-seat-label]');
+    const hasSeatMap = seatButtons.length > 0;
+    const banner = document.getElementById('selected-seat-banner');
+    const badgeEl = document.getElementById('selected-seat-code');
+    const detailsEl = document.getElementById('selected-seat-details');
+
+    const syncButtonAndBanner = (activeSeatBtn) => {
         const checked = document.querySelector('input[name="ticket[tierKey]"]:checked');
-        const price = checked?.getAttribute('data-price');
-        if (btn && price && !btn.disabled) {
-            btn.textContent = `Buy Ticket for ${price}`;
+        const price = activeSeatBtn?.getAttribute('data-price') || checked?.getAttribute('data-price');
+        const seatLabel = seatInput ? seatInput.value.trim().toUpperCase() : '';
+
+        if (hasSeatMap && banner && badgeEl && detailsEl) {
+            if (activeSeatBtn && seatLabel) {
+                const row = activeSeatBtn.getAttribute('data-seat-row');
+                const col = activeSeatBtn.getAttribute('data-seat-col');
+                const tierName = activeSeatBtn.getAttribute('data-tier-name');
+                const seatPrice = activeSeatBtn.getAttribute('data-price');
+                banner.classList.add('has-seat');
+                badgeEl.classList.remove('seat-pill-empty');
+                badgeEl.textContent = `Seat ${seatLabel} · 1 Person`;
+                detailsEl.innerHTML = `<strong>Row ${row}, Seat ${col}</strong> (1 Person Only) &middot; ${tierName} (<strong>${seatPrice}</strong>)`;
+            } else {
+                banner.classList.remove('has-seat');
+                badgeEl.classList.add('seat-pill-empty');
+                badgeEl.textContent = 'No Seat Selected';
+                detailsEl.textContent = 'Click an available seat on the map below to choose your spot.';
+            }
+        }
+
+        if (btn && !btn.disabled) {
+            if (hasSeatMap) {
+                btn.textContent = seatLabel && price
+                    ? `Buy Seat ${seatLabel} for ${price}`
+                    : 'Choose a Seat on the Map to Buy';
+            } else if (price) {
+                btn.textContent = `Buy Ticket for ${price}`;
+            }
         }
     };
-    radios.forEach((r) => r.addEventListener('change', syncPrice));
-    syncPrice();
+
+    const selectSeatButton = (targetBtn) => {
+        seatButtons.forEach((b) => {
+            const isTarget = b === targetBtn;
+            b.classList.toggle('is-selected', isTarget);
+            b.setAttribute('aria-pressed', isTarget ? 'true' : 'false');
+        });
+
+        if (targetBtn && seatInput) {
+            seatInput.value = targetBtn.getAttribute('data-seat-label') || '';
+            const tierKey = targetBtn.getAttribute('data-tier-key');
+            if (tierKey) {
+                const matchingRadio = document.querySelector(`input[name="ticket[tierKey]"][value="${tierKey}"]`);
+                if (matchingRadio) {
+                    matchingRadio.checked = true;
+                }
+            }
+        }
+
+        syncButtonAndBanner(targetBtn);
+    };
+
+    seatButtons.forEach((seatBtn) => {
+        seatBtn.addEventListener('click', () => selectSeatButton(seatBtn));
+    });
+
+    radios.forEach((r) => {
+        r.addEventListener('change', () => {
+            if (hasSeatMap) {
+                document.querySelectorAll('.seat-row').forEach((rowEl) => {
+                    rowEl.classList.toggle('is-tier-focus', rowEl.getAttribute('data-tier-key') === r.value);
+                });
+            }
+            const currentBtn = document.querySelector('.seat-btn.is-selected');
+            syncButtonAndBanner(currentBtn);
+        });
+    });
+
+    // Initialize state (e.g. if ?seat=C4 was passed from the event page)
+    const initialSeat = seatInput ? seatInput.value.trim().toUpperCase() : '';
+    const initialBtn = initialSeat
+        ? document.querySelector(`.seat-btn[data-seat-label="${initialSeat}"]`)
+        : null;
+    if (initialBtn) {
+        selectSeatButton(initialBtn);
+    } else {
+        syncButtonAndBanner(null);
+    }
 })();
 </script>

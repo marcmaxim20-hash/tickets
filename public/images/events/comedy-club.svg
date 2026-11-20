@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="cmg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b0764"/>
+      <stop offset="55%" stop-color="#be185d"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#cmg)"/>
+  <ellipse cx="400" cy="290" rx="210" ry="38" fill="#fef08a" opacity="0.25"/>
+  <rect x="382" y="100" width="36" height="72" rx="18" fill="#fef9c3" opacity="0.82"/>
+  <path d="M366,155 A34,34 0 0,0 434,155" fill="none" stroke="#fef9c3" stroke-width="6" stroke-linecap="round"/>
+  <line x1="400" y1="189" x2="400" y2="288" stroke="#fef9c3" stroke-width="6" stroke-linecap="round"/>
+  <line x1="365" y1="288" x2="435" y2="288" stroke="#fef9c3" stroke-width="7" stroke-linecap="round"/>
+  <rect y="355" width="800" height="95" fill="#2e1065"/>
+  <text x="400" y="408" text-anchor="middle" fill="#fef3c7" font-family="system-ui,sans-serif" font-size="24" font-weight="800" letter-spacing="3">COMEDY &amp; STAND-UP NIGHT</text>
+</svg>

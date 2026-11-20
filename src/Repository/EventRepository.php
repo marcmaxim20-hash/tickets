@@ -22,8 +22,11 @@ class EventRepository extends ServiceEntityRepository
     /**
      * @return list<Event>
      */
-    public function findFiltered(?string $category = null): array
-    {
+    public function findFiltered(
+        ?string $category = null,
+        ?string $locationQuery = null,
+        ?string $searchQuery = null,
+    ): array {
         $this->detachLegacyBackfilledTickets();
 
         $qb = $this->createQueryBuilder('e')
@@ -37,10 +40,62 @@ class EventRepository extends ServiceEntityRepository
                 ->setParameter('category', $category);
         }
 
+        $trimmedLocation = trim((string) $locationQuery);
+        if ($trimmedLocation !== '') {
+            $qb->andWhere('LOWER(e.location) LIKE :locationQuery OR LOWER(e.venue) LIKE :locationQuery')
+                ->setParameter('locationQuery', '%' . mb_strtolower($trimmedLocation) . '%');
+        }
+
+        $trimmedSearch = trim((string) $searchQuery);
+        if ($trimmedSearch !== '') {
+            $qb->andWhere('LOWER(e.title) LIKE :searchQuery OR LOWER(e.venue) LIKE :searchQuery OR LOWER(e.location) LIKE :searchQuery OR LOWER(e.description) LIKE :searchQuery')
+                ->setParameter('searchQuery', '%' . mb_strtolower($trimmedSearch) . '%');
+        }
+
         /** @var list<Event> $results */
         $results = $qb->getQuery()->getResult();
 
         return $results;
+    }
+
+    /**
+     * Extracts unique city/area hints from stored event locations for quick location filter chips.
+     *
+     * @return list<string>
+     */
+    public function getDistinctLocationHints(): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT location FROM events WHERE location IS NOT NULL AND TRIM(location) <> "" ORDER BY location ASC'
+        );
+
+        $seen = [];
+        $hints = [];
+
+        foreach ($rows as $raw) {
+            if (!is_string($raw)) {
+                continue;
+            }
+            $parts = array_values(array_filter(array_map('trim', explode(',', $raw)), static fn (string $p): bool => $p !== ''));
+            if ($parts === []) {
+                continue;
+            }
+
+            // Pick city/area part (e.g. "46011 Valencia" -> "Valencia") when comma-separated, else full string
+            $candidate = count($parts) >= 2 ? $parts[count($parts) - 2] : $parts[0];
+            $candidate = trim((string) preg_replace('/^\d{4,6}\s+/', '', $candidate));
+            if ($candidate === '' || mb_strlen($candidate) > 40) {
+                $candidate = mb_substr($parts[0], 0, 40);
+            }
+
+            $key = mb_strtolower($candidate);
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $hints[] = $candidate;
+            }
+        }
+
+        return array_slice($hints, 0, 8);
     }
 
     /**
@@ -88,6 +143,53 @@ class EventRepository extends ServiceEntityRepository
         );
 
         return $soldCount < (int) $totalSeats;
+    }
+
+    /**
+     * Returns all already-booked seat labels (e.g. ['A1', 'C4']) for an event.
+     *
+     * @return list<string>
+     */
+    public function getTakenSeatLabels(int $eventId): array
+    {
+        $this->detachLegacyBackfilledTickets();
+
+        $rows = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT t.seat_label
+             FROM tickets t
+             WHERE t.event_id = :id
+               AND t.seat_label IS NOT NULL
+               AND t.seat_label <> ""',
+            ['id' => $eventId]
+        );
+
+        $labels = [];
+        foreach ($rows as $row) {
+            if (is_string($row) && trim($row) !== '') {
+                $labels[] = strtoupper(trim($row));
+            }
+        }
+
+        return $labels;
+    }
+
+    /**
+     * Checks inside an active FOR UPDATE transaction whether a specific seat is already booked.
+     */
+    public function isSeatTakenForUpdate(int $eventId, string $seatLabel): bool
+    {
+        $count = (int) $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT COUNT(t.id)
+             FROM tickets t
+             WHERE t.event_id = :id
+               AND UPPER(t.seat_label) = :seat',
+            [
+                'id' => $eventId,
+                'seat' => strtoupper(trim($seatLabel)),
+            ]
+        );
+
+        return $count > 0;
     }
 
     public function findWithSiteSeats(int $id): ?Event

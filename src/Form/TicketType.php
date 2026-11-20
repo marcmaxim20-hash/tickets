@@ -9,6 +9,7 @@ use App\Service\TicketCatalog;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -36,6 +37,9 @@ class TicketType extends AbstractType
                     'placeholder' => 'you@gmail.com',
                     'maxlength' => 180,
                 ],
+            ])
+            ->add('seatLabel', HiddenType::class, [
+                'required' => false,
             ]);
     }
 

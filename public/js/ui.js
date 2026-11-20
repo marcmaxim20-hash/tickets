@@ -5,8 +5,15 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         initThemeSwitcher();
+        initAccountMenu();
+        initDatePickers();
         initStickyHeader();
+        initScrollProgress();
         initScrollAnimations();
+        initCardSpotlights();
+        initButtonRipples();
+        initCounterAnimations();
+        initConfirmationConfetti();
         initSeatBars();
         initPasswordEnhancements();
         initEventSearch();
@@ -51,6 +58,9 @@
         );
 
         standaloneTargets.forEach((el) => {
+            if (el.id === 'event-seat-map' || el.classList.contains('no-reveal')) {
+                return;
+            }
             if (!el.closest('.events-grid, .pricing-grid, .kpi-grid, .account-passes-grid, .scanner-grid')) {
                 el.classList.add('reveal-item');
             }
@@ -200,23 +210,30 @@
     }
 
     /**
-     * Instant live search filtering on the Events showcase grid.
+     * Instant live search & location filtering on the Events showcase grid.
      */
     function initEventSearch() {
         const searchInput = document.getElementById('event-live-search');
+        const locationInput = document.getElementById('event-location-search');
         const cards = document.querySelectorAll('.events-grid .event-card');
         const emptySearch = document.getElementById('events-search-empty');
         const clearBtn = document.getElementById('event-search-clear');
+        const clearLocBtn = document.getElementById('event-location-clear');
+        const resetBtn = document.getElementById('events-search-reset-btn');
 
-        if (!searchInput || cards.length === 0) return;
+        if ((!searchInput && !locationInput) || cards.length === 0) return;
 
         const filterCards = () => {
-            const query = searchInput.value.trim().toLowerCase();
+            const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+            const locQuery = locationInput ? locationInput.value.trim().toLowerCase() : '';
             let visibleCount = 0;
 
             cards.forEach((card) => {
                 const haystack = (card.dataset.searchText || card.textContent || '').toLowerCase();
-                const match = query === '' || haystack.includes(query);
+                const locHaystack = (card.dataset.locationText || haystack).toLowerCase();
+                const matchText = query === '' || haystack.includes(query);
+                const matchLoc = locQuery === '' || locHaystack.includes(locQuery);
+                const match = matchText && matchLoc;
                 card.hidden = !match;
                 if (match) visibleCount++;
             });
@@ -227,13 +244,32 @@
             if (clearBtn) {
                 clearBtn.hidden = query === '';
             }
+            if (clearLocBtn) {
+                clearLocBtn.hidden = locQuery === '';
+            }
         };
 
-        searchInput.addEventListener('input', filterCards);
+        searchInput?.addEventListener('input', filterCards);
+        locationInput?.addEventListener('input', filterCards);
+
         clearBtn?.addEventListener('click', () => {
+            if (!searchInput) return;
             searchInput.value = '';
             filterCards();
             searchInput.focus();
+        });
+
+        clearLocBtn?.addEventListener('click', () => {
+            if (!locationInput) return;
+            locationInput.value = '';
+            filterCards();
+            locationInput.focus();
+        });
+
+        resetBtn?.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            if (locationInput) locationInput.value = '';
+            filterCards();
         });
     }
 
@@ -364,6 +400,7 @@
         trigger?.addEventListener('click', (e) => {
             e.stopPropagation();
             const opening = popover.hidden;
+            document.dispatchEvent(new CustomEvent('swiftdesk:close-popovers', { detail: { except: 'theme' } }));
             popover.hidden = !opening;
             trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
         });
@@ -382,9 +419,189 @@
             applyTheme('custom', e.target.value);
         });
 
+        document.addEventListener('swiftdesk:close-popovers', (e) => {
+            if (e.detail?.except !== 'theme') closePopover();
+        });
         document.addEventListener('click', closePopover);
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closePopover();
         });
+    }
+
+    /**
+     * Compact Account Icon dropdown submenu (Sign In, Register, My Account / Organizer Hub, Sign Out).
+     */
+    function initAccountMenu() {
+        const menu = document.querySelector('[data-account-menu]');
+        if (!menu) return;
+
+        const trigger = menu.querySelector('[data-account-trigger]');
+        const popover = menu.querySelector('[data-account-popover]');
+        if (!trigger || !popover) return;
+
+        const closePopover = () => {
+            popover.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+        };
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const opening = popover.hidden;
+            document.dispatchEvent(new CustomEvent('swiftdesk:close-popovers', { detail: { except: 'account' } }));
+            popover.hidden = !opening;
+            trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+        });
+
+        popover.addEventListener('click', (e) => e.stopPropagation());
+
+        document.addEventListener('swiftdesk:close-popovers', (e) => {
+            if (e.detail?.except !== 'account') closePopover();
+        });
+        document.addEventListener('click', closePopover);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePopover();
+        });
+    }
+
+    /**
+     * Opens the native calendar/time picker when clicking anywhere on date or datetime-local inputs
+     * (not only on the small right-hand icon).
+     */
+    function initDatePickers() {
+        const inputs = document.querySelectorAll(
+            'input[type="date"], input[type="datetime-local"], input[type="time"], input[type="month"]'
+        );
+
+        inputs.forEach((input) => {
+            input.addEventListener('click', () => {
+                if (typeof input.showPicker === 'function') {
+                    try {
+                        input.showPicker();
+                    } catch (_) {}
+                }
+            });
+        });
+    }
+
+    /**
+     * Smooth top scroll progress indicator for long pages.
+     */
+    function initScrollProgress() {
+        if (prefersReducedMotion) return;
+
+        const bar = document.createElement('div');
+        bar.className = 'scroll-progress-bar';
+        bar.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(bar);
+
+        const updateBar = () => {
+            const scrollTop = window.scrollY || document.documentElement.scrollTop;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const pct = docHeight > 0 ? Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)) : 0;
+            bar.style.width = `${pct.toFixed(1)}%`;
+        };
+
+        updateBar();
+        window.addEventListener('scroll', updateBar, { passive: true });
+        window.addEventListener('resize', updateBar, { passive: true });
+    }
+
+    /**
+     * Subtle cursor-tracking spotlight glow on event, pricing, and AI match cards.
+     */
+    function initCardSpotlights() {
+        if (prefersReducedMotion) return;
+
+        document.addEventListener('pointermove', (e) => {
+            const card = e.target.closest?.('.event-card, .pricing-card, .ai-match-card');
+            if (!card) return;
+            const rect = card.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            card.style.setProperty('--mx', `${x.toFixed(1)}%`);
+            card.style.setProperty('--my', `${y.toFixed(1)}%`);
+        }, { passive: true });
+    }
+
+    /**
+     * Tactile ink ripple burst on primary/action button clicks.
+     */
+    function initButtonRipples() {
+        if (prefersReducedMotion) return;
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest?.('.btn:not([disabled])');
+            if (!btn) return;
+            const rect = btn.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height) * 0.45;
+            const ink = document.createElement('span');
+            ink.className = 'btn-ripple-ink';
+            ink.style.width = `${size}px`;
+            ink.style.height = `${size}px`;
+            ink.style.left = `${e.clientX - rect.left - size / 2}px`;
+            ink.style.top = `${e.clientY - rect.top - size / 2}px`;
+            btn.appendChild(ink);
+            setTimeout(() => ink.remove(), 580);
+        });
+    }
+
+    /**
+     * Smooth numeric count-up animation for KPI metrics on dashboards.
+     */
+    function initCounterAnimations() {
+        if (prefersReducedMotion) return;
+
+        document.querySelectorAll('.kpi-value').forEach((el) => {
+            const raw = (el.textContent || '').trim();
+            const match = raw.match(/^(\d+)(\$)?$/);
+            if (!match) return;
+
+            const target = parseInt(match[1], 10);
+            const suffix = match[2] || '';
+            if (target <= 0 || target > 100000) return;
+
+            const duration = 620;
+            const start = performance.now();
+            const step = (now) => {
+                const progress = Math.min(1, (now - start) / duration);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const val = Math.round(eased * target);
+                el.textContent = `${val}${suffix}`;
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    el.textContent = raw;
+                }
+            };
+            requestAnimationFrame(step);
+        });
+    }
+
+    /**
+     * Brief celebratory confetti burst on the ticket purchase confirmation page.
+     */
+    function initConfirmationConfetti() {
+        if (prefersReducedMotion) return;
+        const card = document.querySelector('.confirmed-pass-card');
+        if (!card) return;
+
+        const colors = ['#f59e0b', '#ea580c', '#e11d48', '#6366f1', '#10b981', '#ec4899'];
+        for (let i = 0; i < 28; i++) {
+            const piece = document.createElement('span');
+            piece.className = 'confetti-particle';
+            const angle = (Math.PI * 2 * i) / 28 + (Math.random() - 0.5) * 0.25;
+            const distance = 90 + Math.random() * 170;
+            const dx = Math.cos(angle) * distance;
+            const dy = Math.sin(angle) * distance + 75;
+            const rot = (Math.random() > 0.5 ? 1 : -1) * (180 + Math.random() * 360);
+
+            piece.style.background = colors[i % colors.length];
+            piece.style.setProperty('--dx', `${dx.toFixed(0)}px`);
+            piece.style.setProperty('--dy', `${dy.toFixed(0)}px`);
+            piece.style.setProperty('--rot', `${rot.toFixed(0)}deg`);
+            piece.style.animationDelay = `${(Math.random() * 140).toFixed(0)}ms`;
+            card.appendChild(piece);
+            setTimeout(() => piece.remove(), 1500);
+        }
     }
 })();

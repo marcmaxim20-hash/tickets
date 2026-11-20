@@ -1,0 +1,311 @@
+{#
+    Reusable Interactive Airplane / Theatre Seat Map Picker
+    Variables:
+      - event: Event entity
+      - seat_map: array from SeatMapService::buildSeatMap()
+      - mode: 'checkout' | 'preview_link'
+      - selected_seat: ?string (currently selected seat label in checkout mode)
+      - read_only: bool (true only when sold out)
+      - arrange_seats_url: ?string (Admin or Organizer link to rearrange seat positions)
+#}
+{% set is_checkout = mode == 'checkout' %}
+{% set is_sold_out = event.soldOut %}
+{% set current_selected = selected_seat is defined and selected_seat ? selected_seat|upper : '' %}
+{% set map_viewer = current_customer() %}
+{% set is_organizer_viewer = map_viewer and map_viewer.organizer %}
+{% set stage_pos = seat_map.stage_position is defined ? seat_map.stage_position : 'top' %}
+{% set show_arrange_url = arrange_seats_url is defined and arrange_seats_url ? arrange_seats_url : null %}
+
+<div
+    class="seat-map-shell seat-layout-{{ seat_map.layout }} stage-pos-{{ stage_pos }}"
+    data-seat-map-mode="{{ mode }}"
+    id="seat-map-shell-{{ event.id }}"
+>
+    <div class="seat-map-topbar">
+        <div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <h3 style="margin:0;font-size:1.05rem;font-weight:800;">
+                    {{ is_checkout ? 'Choose Your Seat on the Map' : 'Interactive Seat Selection Map' }}
+                </h3>
+                <span class="badge badge-festival">{{ seat_map.layout_label }}</span>
+                <span class="badge badge-seat-map">1 Seat = 1 Person Only</span>
+            </div>
+            <p style="margin:0.2rem 0 0;font-size:0.83rem;color:var(--text-secondary);">
+                {% if is_sold_out %}
+                    All seats for {{ event.venue }} are currently booked ({{ seat_map.taken_count }} / {{ seat_map.total_seats }} taken).
+                {% elseif is_checkout %}
+                    Click any available seat below — just like choosing a seat on an airplane or theatre. <strong>Every seat is strictly for 1 person only</strong> and locks permanently once booked.
+                {% else %}
+                    Click any available seat below to select it and buy it right away. <strong>Every seat is strictly for 1 person only.</strong>
+                {% endif %}
+            </p>
+        </div>
+        <div class="seat-map-stats" style="align-items:center;">
+            {% if show_arrange_url %}
+                <a href="{{ show_arrange_url }}" class="btn btn-primary btn-sm">
+                    Arrange Seat Positions
+                </a>
+            {% endif %}
+            <span class="badge badge-unused"><span class="badge-dot"></span>{{ seat_map.available_count }} Free</span>
+            <span class="badge badge-used"><span class="badge-dot"></span>{{ seat_map.taken_count }} Taken</span>
+        </div>
+    </div>
+
+    {% if is_checkout %}
+        <div id="selected-seat-banner" class="selected-seat-banner {{ current_selected ? 'has-seat' : '' }}" role="status" aria-live="polite">
+            {% if current_selected %}
+                <span class="seat-pill-badge" id="selected-seat-code">Seat {{ current_selected }} &middot; 1 Person</span>
+                <span id="selected-seat-details">Selected seat <strong>{{ current_selected }}</strong> (1 Person Only) — ready to purchase.</span>
+            {% else %}
+                <span class="seat-pill-badge seat-pill-empty" id="selected-seat-code">No Seat Selected</span>
+                <span id="selected-seat-details">Click an available seat on the map below to choose your spot.</span>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <div class="seat-map-viewport">
+        <div class="seat-map-cabin {{ seat_map.layout == 'saloon' ? 'is-cabin' : '' }} stage-pos-{{ stage_pos }}">
+            {% if stage_pos == 'top' %}
+                <div class="seat-map-stage-bar {{ seat_map.layout == 'saloon' ? 'is-cabin' : '' }}">
+                    <span>{{ seat_map.stage_label }}</span>
+                </div>
+            {% endif %}
+
+            <div class="seat-map-stage-row stage-pos-{{ stage_pos }}">
+                {% if stage_pos == 'left' %}
+                    <div class="seat-map-stage-side">
+                        <span>{{ seat_map.stage_label }}</span>
+                    </div>
+                {% endif %}
+
+                <div class="seat-map-grid" role="group" aria-label="Venue seating chart">
+                    {% for row in seat_map.rows %}
+                        <div class="seat-row" data-row-letter="{{ row.letter }}" data-tier-key="{{ row.tier_key }}">
+                            <span class="seat-row-label" title="Row {{ row.letter }}">{{ row.letter }}</span>
+
+                            <div class="seat-row-seats">
+                                {% for seat in row.seats %}
+                                    {% if seat.is_empty is defined and seat.is_empty %}
+                                        <span class="seat-slot-empty" aria-hidden="true"></span>
+                                    {% elseif seat.taken %}
+                                        <span
+                                            class="seat-btn is-taken"
+                                            title="Seat {{ seat.label }} — Already Booked (Reserved for 1 Person)"
+                                            aria-label="Seat {{ seat.label }} already taken by 1 person"
+                                        >
+                                            <span class="seat-btn-x" aria-hidden="true">&times;</span>
+                                        </span>
+                                    {% elseif is_sold_out %}
+                                        <span
+                                            class="seat-btn is-available {{ seat.zone_class }}"
+                                            title="Seat {{ seat.label }} · {{ seat.tier_name }} ({{ seat.price_display }})"
+                                        >
+                                            <span class="seat-btn-label">{{ seat.label }}</span>
+                                        </span>
+                                    {% elseif is_checkout %}
+                                        {% set is_selected = current_selected == seat.label %}
+                                        <button
+                                            type="button"
+                                            class="seat-btn is-available {{ seat.zone_class }} {{ is_selected ? 'is-selected' : '' }}"
+                                            data-seat-label="{{ seat.label }}"
+                                            data-seat-row="{{ seat.row_letter }}"
+                                            data-seat-col="{{ seat.col }}"
+                                            data-tier-key="{{ seat.tier_key }}"
+                                            data-tier-name="{{ seat.tier_name }}"
+                                            data-price="{{ seat.price_display }}"
+                                            aria-pressed="{{ is_selected ? 'true' : 'false' }}"
+                                            title="Seat {{ seat.label }} · 1 Person Only · Row {{ seat.row_letter }}, Seat {{ seat.col }} · {{ seat.tier_name }} ({{ seat.price_display }})"
+                                        >
+                                            <span class="seat-btn-label">{{ seat.label }}</span>
+                                        </button>
+                                    {% else %}
+                                        <button
+                                            type="button"
+                                            class="seat-btn is-available {{ seat.zone_class }}"
+                                            data-preview-seat="{{ seat.label }}"
+                                            data-seat-row="{{ seat.row_letter }}"
+                                            data-seat-col="{{ seat.col }}"
+                                            data-tier-key="{{ seat.tier_key }}"
+                                            data-tier-name="{{ seat.tier_name }}"
+                                            data-price="{{ seat.price_display }}"
+                                            data-checkout-url="{{ path('ticket_new', {event: event.id, seat: seat.label, tier: seat.tier_key}) }}"
+                                            aria-pressed="false"
+                                            title="Click to select & buy Seat {{ seat.label }} (1 Person Only) — {{ seat.tier_name }} ({{ seat.price_display }})"
+                                        >
+                                            <span class="seat-btn-label">{{ seat.label }}</span>
+                                        </button>
+                                    {% endif %}
+
+                                    {% if seat.aisle_after %}
+                                        <span class="seat-aisle" aria-hidden="true"></span>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <span class="seat-row-label">{{ row.letter }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if stage_pos == 'right' %}
+                    <div class="seat-map-stage-side">
+                        <span>{{ seat_map.stage_label }}</span>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if stage_pos == 'bottom' %}
+                <div class="seat-map-stage-bar seat-map-stage-bottom {{ seat_map.layout == 'saloon' ? 'is-cabin' : '' }}">
+                    <span>{{ seat_map.stage_label }}</span>
+                </div>
+            {% else %}
+                <div class="seat-map-rear-label">
+                    BACK OF {{ seat_map.layout == 'saloon' ? 'SALOON / HALL' : (seat_map.layout == 'building' ? 'BUILDING HALL' : (seat_map.layout == 'festival' ? 'FESTIVAL GROUNDS' : 'AUDITORIUM')) }} &middot; ENTRANCE DOORS
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not is_checkout and not is_sold_out %}
+        <div id="event-seat-buy-bar" class="seat-buy-bar" role="region" aria-live="polite" aria-label="Buy selected seat">
+            <div class="seat-buy-info">
+                <span id="preview-seat-badge" class="seat-pill-badge seat-pill-empty">No Seat Selected</span>
+                <div id="preview-seat-summary" class="seat-buy-summary">
+                    {% if is_organizer_viewer %}
+                        Click any seat above to inspect its zone &amp; price. (Signed in as Organizer — switch to a Customer account to purchase seats.)
+                    {% else %}
+                        Click any available seat above to see its price and buy it immediately (1 person per seat).
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="seat-buy-actions">
+                {% if map_viewer and map_viewer.customer %}
+                    <form method="post" action="{{ path('event_buy_seat', {id: event.id}) }}" id="direct-seat-buy-form" style="margin:0;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('buy_seat_' ~ event.id) }}">
+                        <input type="hidden" name="seat_label" id="direct-seat-label-input" value="">
+                        <button type="submit" id="direct-seat-buy-btn" class="btn btn-festival" disabled>
+                            Select a Seat to Buy
+                        </button>
+                    </form>
+                    <a href="{{ path('ticket_new', {event: event.id}) }}" id="preview-checkout-link" class="btn btn-secondary" hidden>
+                        Checkout Details &rarr;
+                    </a>
+                {% elseif is_organizer_viewer %}
+                    <form method="post" action="{{ path('account_logout') }}" style="margin:0;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('customer_logout') }}">
+                        <button type="submit" id="organizer-switch-buy-btn" class="btn btn-secondary">
+                            Sign Out to Buy as Customer
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{{ path('ticket_new', {event: event.id}) }}" id="guest-seat-buy-link" class="btn btn-festival is-disabled-link" aria-disabled="true">
+                        Select a Seat to Buy
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <script>
+        (function () {
+            function initSeatPreviewBuy() {
+                var shell = document.getElementById('seat-map-shell-{{ event.id }}');
+                if (!shell || shell.dataset.previewBound === '1') return;
+                shell.dataset.previewBound = '1';
+
+                var buyBar = document.getElementById('event-seat-buy-bar');
+                var badge = document.getElementById('preview-seat-badge');
+                var summary = document.getElementById('preview-seat-summary');
+                var directInput = document.getElementById('direct-seat-label-input');
+                var directBtn = document.getElementById('direct-seat-buy-btn');
+                var checkoutLink = document.getElementById('preview-checkout-link');
+                var guestLink = document.getElementById('guest-seat-buy-link');
+                var orgSwitchBtn = document.getElementById('organizer-switch-buy-btn');
+
+                if (guestLink) {
+                    guestLink.addEventListener('click', function (e) {
+                        if (guestLink.getAttribute('aria-disabled') === 'true') {
+                            e.preventDefault();
+                        }
+                    });
+                }
+
+                shell.addEventListener('click', function (event) {
+                    var btn = event.target.closest('button[data-preview-seat]');
+                    if (!btn || !shell.contains(btn)) return;
+
+                    var seatLabel = btn.getAttribute('data-preview-seat') || '';
+                    var row = btn.getAttribute('data-seat-row') || '';
+                    var col = btn.getAttribute('data-seat-col') || '';
+                    var tierName = btn.getAttribute('data-tier-name') || '';
+                    var price = btn.getAttribute('data-price') || '';
+                    var checkoutUrl = btn.getAttribute('data-checkout-url') || '';
+
+                    shell.querySelectorAll('button[data-preview-seat]').forEach(function (b) {
+                        var active = b === btn;
+                        b.classList.toggle('is-selected', active);
+                        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+                    });
+
+                    if (buyBar) buyBar.classList.add('has-seat');
+                    if (badge) {
+                        badge.classList.remove('seat-pill-empty');
+                        badge.textContent = 'Seat ' + seatLabel + ' · 1 Person';
+                    }
+                    if (summary) {
+                        if (orgSwitchBtn) {
+                            summary.innerHTML = '<strong>Row ' + row + ', Seat ' + col + '</strong> &middot; ' + tierName + ' (<strong>' + price + '</strong>) &middot; Signed in as Organizer — sign out and use a Customer account to buy this seat.';
+                        } else {
+                            summary.innerHTML = '<strong>Row ' + row + ', Seat ' + col + '</strong> &middot; ' + tierName + ' (<strong>' + price + '</strong>) &middot; Reserved strictly for 1 person.';
+                        }
+                    }
+                    if (directInput && directBtn) {
+                        directInput.value = seatLabel;
+                        directBtn.disabled = false;
+                        directBtn.textContent = 'Buy Seat ' + seatLabel + ' for ' + price;
+                    }
+                    if (checkoutLink && checkoutUrl) {
+                        checkoutLink.href = checkoutUrl;
+                        checkoutLink.hidden = false;
+                    }
+                    if (guestLink && checkoutUrl) {
+                        guestLink.href = checkoutUrl;
+                        guestLink.classList.remove('is-disabled-link');
+                        guestLink.setAttribute('aria-disabled', 'false');
+                        guestLink.textContent = 'Buy Seat ' + seatLabel + ' for ' + price + ' →';
+                    }
+                    if (orgSwitchBtn) {
+                        orgSwitchBtn.textContent = 'Sign Out to Buy Seat ' + seatLabel + ' (' + price + ')';
+                    }
+                    if (buyBar) {
+                        buyBar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initSeatPreviewBuy);
+            } else {
+                initSeatPreviewBuy();
+            }
+        })();
+        </script>
+    {% endif %}
+
+    <div class="seat-legend" aria-label="Seat map legend">
+        {% for zone in seat_map.zones %}
+            <span class="seat-legend-item">
+                <span class="seat-swatch {{ zone.zone_class }}"></span>
+                <span><strong>{{ zone.price_display }}</strong> {{ zone.tier_name }} <span style="color:var(--text-muted);">({{ zone.row_range }})</span></span>
+            </span>
+        {% endfor %}
+        <span class="seat-legend-item">
+            <span class="seat-swatch is-selected"></span>
+            <span>Selected</span>
+        </span>
+        <span class="seat-legend-item">
+            <span class="seat-swatch is-taken"></span>
+            <span>Taken (1 Person Reserved)</span>
+        </span>
+    </div>
+</div>

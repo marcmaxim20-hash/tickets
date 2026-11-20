@@ -12,3 +12,13 @@
 
 /public/uploads/events/*
 !/public/uploads/events/.gitkeep
+
+/.phpunit.cache/
+/e2e/node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###

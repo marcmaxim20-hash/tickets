@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="nlg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09090b"/>
+      <stop offset="50%" stop-color="#6d28d9"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#nlg)"/>
+  <circle cx="400" cy="165" r="78" fill="#f5d0fe" opacity="0.25"/>
+  <polygon points="400,165 80,355 240,355" fill="#c084fc" opacity="0.18"/>
+  <polygon points="400,165 560,355 720,355" fill="#f472b6" opacity="0.18"/>
+  <polygon points="400,165 310,355 490,355" fill="#38bdf8" opacity="0.16"/>
+  <rect y="355" width="800" height="95" fill="#09090b"/>
+  <text x="400" y="408" text-anchor="middle" fill="#f5d0fe" font-family="system-ui,sans-serif" font-size="24" font-weight="800" letter-spacing="3">CLUB &amp; NIGHTLIFE PARTY</text>
+</svg>

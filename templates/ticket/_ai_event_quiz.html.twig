@@ -1,0 +1,310 @@
+{# Interactive AI Event Taste Quiz on the Main Page #}
+<section id="ai-quiz-section" class="card no-reveal ai-quiz-card" aria-labelledby="ai-quiz-heading">
+    <div class="ai-quiz-banner">
+        <div class="ai-quiz-banner-copy">
+            <span class="badge ai-quiz-pill">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3z"/></svg>
+                <span>AI Event Matchmaker</span>
+            </span>
+            <h2 id="ai-quiz-heading" class="section-title" style="margin:0.35rem 0 0.2rem;font-size:1.3rem;">
+                Not sure which event to pick? Take our 30-second AI Match Test!
+            </h2>
+            <p class="section-subtitle" style="margin:0;">
+                Answer 4 quick questions and our AI will tell you which upcoming events match your taste best.
+            </p>
+        </div>
+
+        <button type="button" id="ai-quiz-toggle-btn" class="btn btn-ai" aria-expanded="false" aria-controls="ai-quiz-panel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3z"/><path d="M19 3l.7 2.1L22 5.8l-2.3.7L19 8.6l-.7-2.1L16 5.8l2.3-.7L19 3z"/></svg>
+            <span data-toggle-label>Start AI Match Test</span>
+        </button>
+    </div>
+
+    <div id="ai-quiz-panel" class="ai-quiz-panel" hidden>
+        <form
+            id="ai-quiz-form"
+            data-endpoint="{{ path('ai_event_quiz') }}"
+            data-csrf-token="{{ csrf_token('ai_event_quiz') }}"
+        >
+            <div class="ai-quiz-grid">
+                <fieldset class="ai-quiz-question">
+                    <legend class="ai-quiz-q-title">1. What vibe are you in the mood for?</legend>
+                    <div class="ai-quiz-options">
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="vibe" value="High-Energy & Live Music" checked>
+                            <span><strong>High-Energy &amp; Live Music</strong><small>Festivals, concerts, club nights</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="vibe" value="Arts, Drama & Culture">
+                            <span><strong>Arts, Drama &amp; Culture</strong><small>Theatre, cinema, art exhibitions</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="vibe" value="Laughs & Social Fun">
+                            <span><strong>Laughs &amp; Social Fun</strong><small>Comedy, saloon shows, sports</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="vibe" value="Learn, Network & Grow">
+                            <span><strong>Learn, Network &amp; Grow</strong><small>Conferences, talks, workshops</small></span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="ai-quiz-question">
+                    <legend class="ai-quiz-q-title">2. Preferred venue setting?</legend>
+                    <div class="ai-quiz-options">
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="setting" value="Outdoor Festival & Big Crowd" checked>
+                            <span><strong>Outdoor &amp; Big Crowd</strong><small>Open-air stages &amp; festival atmosphere</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="setting" value="Indoor Theatre / Seated Hall">
+                            <span><strong>Indoor Seated Hall</strong><small>Grand theatre, cinema, or saloon seats</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="setting" value="Cozy Intimate Venue">
+                            <span><strong>Cozy &amp; Intimate</strong><small>Up-close stage &amp; relaxed vibe</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="setting" value="Any Setting — Surprise Me">
+                            <span><strong>Surprise Me</strong><small>Open to any great venue</small></span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="ai-quiz-question">
+                    <legend class="ai-quiz-q-title">3. Who are you going with?</legend>
+                    <div class="ai-quiz-options">
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="company" value="Friends Group" checked>
+                            <span><strong>Friends Group</strong><small>Fun night out together</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="company" value="Date Night / Partner">
+                            <span><strong>Date Night</strong><small>Memorable evening for two</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="company" value="Solo Adventure">
+                            <span><strong>Solo Adventure</strong><small>Exploring on my own schedule</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="company" value="Family / Colleagues">
+                            <span><strong>Family / Team</strong><small>Group-friendly event</small></span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="ai-quiz-question">
+                    <legend class="ai-quiz-q-title">4. Ideal ticket budget?</legend>
+                    <div class="ai-quiz-options">
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="budget" value="Starter (~19$)">
+                            <span><strong>Starter (~19$)</strong><small>Great value standard seats</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="budget" value="Preferred (~39$)" checked>
+                            <span><strong>Preferred (~39$)</strong><small>Closer front-zone seating</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="budget" value="VIP (~79$)">
+                            <span><strong>VIP (~79$)</strong><small>VIP deck &amp; lounge perks</small></span>
+                        </label>
+                        <label class="ai-quiz-option">
+                            <input type="radio" name="budget" value="Exclusive (~149$)">
+                            <span><strong>Exclusive (~149$)</strong><small>Row A Royal Box / backstage</small></span>
+                        </label>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div class="ai-quiz-extra-row">
+                <div class="form-group" style="flex:1;margin:0;min-width:240px;">
+                    <label for="ai-quiz-extra" class="form-label" style="margin-bottom:0.35rem;">Anything else you love? (optional)</label>
+                    <input
+                        type="text"
+                        id="ai-quiz-extra"
+                        name="extra_notes"
+                        class="form-control"
+                        maxlength="200"
+                        placeholder="e.g., sunset music, classic drama, Valencia, front row..."
+                    >
+                </div>
+
+                <button type="submit" id="ai-quiz-submit-btn" class="btn btn-ai btn-lg" data-no-spinner>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3z"/></svg>
+                    <span data-quiz-submit-label>Find My Best Events with AI</span>
+                </button>
+            </div>
+
+            <div id="ai-quiz-status" class="ai-desc-status" role="status" aria-live="polite" hidden></div>
+        </form>
+
+        <div id="ai-quiz-results" class="ai-quiz-results" hidden></div>
+    </div>
+</section>
+
+<script>
+(function () {
+    function escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function initAiEventQuiz() {
+        var toggleBtn = document.getElementById('ai-quiz-toggle-btn');
+        var heroLaunchBtn = document.getElementById('hero-ai-quiz-btn');
+        var panel = document.getElementById('ai-quiz-panel');
+        var form = document.getElementById('ai-quiz-form');
+        var submitBtn = document.getElementById('ai-quiz-submit-btn');
+        var statusEl = document.getElementById('ai-quiz-status');
+        var resultsEl = document.getElementById('ai-quiz-results');
+        if (!toggleBtn || !panel || !form || form.dataset.quizBound === '1') return;
+        form.dataset.quizBound = '1';
+
+        var toggleLabel = toggleBtn.querySelector('[data-toggle-label]');
+        var submitLabel = submitBtn ? submitBtn.querySelector('[data-quiz-submit-label]') : null;
+
+        function setPanelOpen(open) {
+            panel.hidden = !open;
+            toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (toggleLabel) {
+                toggleLabel.textContent = open ? 'Hide AI Match Test' : 'Start AI Match Test';
+            }
+        }
+
+        toggleBtn.addEventListener('click', function () {
+            setPanelOpen(panel.hidden);
+        });
+
+        if (heroLaunchBtn) {
+            heroLaunchBtn.addEventListener('click', function () {
+                setPanelOpen(true);
+                var section = document.getElementById('ai-quiz-section');
+                if (section) {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        }
+
+        function setStatus(msg, type) {
+            if (!statusEl) return;
+            statusEl.textContent = msg;
+            statusEl.className = 'ai-desc-status' + (type ? ' is-' + type : '');
+            statusEl.hidden = !msg;
+        }
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            if (submitBtn && submitBtn.disabled) return;
+
+            var formData = new FormData(form);
+            var payload = {
+                _csrf_token: form.getAttribute('data-csrf-token'),
+                vibe: String(formData.get('vibe') || ''),
+                setting: String(formData.get('setting') || ''),
+                company: String(formData.get('company') || ''),
+                budget: String(formData.get('budget') || ''),
+                extra_notes: String(formData.get('extra_notes') || '').trim()
+            };
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('is-generating');
+            }
+            if (submitLabel) submitLabel.textContent = 'Analyzing your taste with AI...';
+            setStatus('Our AI is matching your answers against upcoming events...', 'loading');
+
+            try {
+                var resp = await fetch(form.getAttribute('data-endpoint'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var data = await resp.json().catch(function () { return {}; });
+                if (!resp.ok || !data.ok) {
+                    setStatus(data.error || 'Could not run the AI match test. Please try again.', 'error');
+                    return;
+                }
+
+                setStatus('', '');
+                renderResults(data);
+            } catch (err) {
+                setStatus('Network error while contacting AI matchmaker. Please try again.', 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('is-generating');
+                }
+                if (submitLabel) submitLabel.textContent = 'Find My Best Events with AI';
+            }
+        });
+
+        function renderResults(data) {
+            if (!resultsEl) return;
+
+            var recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+            var cats = Array.isArray(data.suggested_categories) ? data.suggested_categories : [];
+
+            var catsHtml = cats.length > 0
+                ? '<div class="ai-quiz-cats"><span>Recommended Categories:</span>'
+                    + cats.map(function (c) {
+                        return '<a href="' + escapeHtml(c.url) + '" class="location-chip">' + escapeHtml(c.label) + ' &rarr;</a>';
+                    }).join('')
+                    + '</div>'
+                : '';
+
+            var cardsHtml = recs.length > 0
+                ? '<div class="ai-match-grid">' + recs.map(function (rec, idx) {
+                    return '<article class="ai-match-card">'
+                        + '<a href="' + escapeHtml(rec.event_url) + '" class="ai-match-media">'
+                        + '<img src="' + escapeHtml(rec.image_url) + '" alt="' + escapeHtml(rec.title) + '">'
+                        + '<span class="ai-match-score-pill">#' + (idx + 1) + ' &middot; ' + escapeHtml(rec.match_score) + '% Match</span>'
+                        + '</a>'
+                        + '<div class="ai-match-body">'
+                        + '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.35rem;">'
+                        + '<span class="badge badge-festival">' + escapeHtml(rec.category_label) + '</span>'
+                        + '<span style="font-size:0.78rem;color:var(--text-muted);">' + escapeHtml(rec.start_date) + '</span>'
+                        + '</div>'
+                        + '<h4 class="ai-match-title"><a href="' + escapeHtml(rec.event_url) + '">' + escapeHtml(rec.title) + '</a></h4>'
+                        + '<p class="ai-match-reason">' + escapeHtml(rec.reason) + '</p>'
+                        + '<div class="ai-match-meta">' + escapeHtml(rec.venue) + (rec.location ? ' &middot; ' + escapeHtml(rec.location) : '') + '</div>'
+                        + '<a href="' + escapeHtml(rec.event_url) + '" class="btn btn-festival btn-sm" style="width:100%;margin-top:auto;">View Event &amp; Pick Seat &rarr;</a>'
+                        + '</div>'
+                        + '</article>';
+                }).join('') + '</div>'
+                : '<p style="margin:0.75rem 0 0;color:var(--text-secondary);">No upcoming events found right now — check back soon!</p>';
+
+            resultsEl.innerHTML = '<div class="ai-profile-header">'
+                + '<div>'
+                + '<span class="badge ai-quiz-pill">' + (data.ai_powered ? 'AI Result' : 'Smart Match Result') + '</span>'
+                + '<h3 class="ai-profile-title">Your Event Profile: ' + escapeHtml(data.personality_title) + '</h3>'
+                + '<p class="ai-profile-summary">' + escapeHtml(data.summary) + '</p>'
+                + '</div>'
+                + '<button type="button" id="ai-quiz-retake-btn" class="btn btn-secondary btn-sm">Retake Test</button>'
+                + '</div>'
+                + catsHtml
+                + cardsHtml;
+
+            resultsEl.hidden = false;
+            resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            var retakeBtn = document.getElementById('ai-quiz-retake-btn');
+            if (retakeBtn) {
+                retakeBtn.addEventListener('click', function () {
+                    resultsEl.hidden = true;
+                    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
+            }
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAiEventQuiz);
+    } else {
+        initAiEventQuiz();
+    }
+})();
+</script>

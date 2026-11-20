@@ -8,6 +8,7 @@ use App\Entity\Event;
 use App\Form\EventType;
 use App\Repository\EventRepository;
 use App\Service\EventImageUploader;
+use App\Service\SeatMapService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -22,6 +23,7 @@ class AdminEventController extends AbstractController
 
     public function __construct(
         private readonly EventImageUploader $imageUploader,
+        private readonly SeatMapService $seatMapService,
     ) {
     }
 
@@ -70,6 +72,24 @@ class AdminEventController extends AbstractController
                 $event->setImagePath($pastedUrl);
             }
 
+            if ($event->isSeatMapEnabled()) {
+                $rawConfig = (string) ($form->get('seatMapConfigJson')->getData() ?? '');
+                $sanitized = $this->seatMapService->sanitizeSeatMapConfigJson(
+                    $rawConfig,
+                    $event->getSeatRows(),
+                    $event->getSeatsPerRow(),
+                );
+                $event->setSeatMapConfig($sanitized);
+                if ($sanitized !== null) {
+                    $event->setSeatRows($sanitized['rows']);
+                    $event->setSeatsPerRow(min(20, $sanitized['cols']));
+                }
+            } else {
+                $event->setSeatMapConfig(null);
+            }
+
+            $event->syncTotalSeatsFromSeatMap();
+
             $entityManager->persist($event);
             $entityManager->flush();
 
@@ -85,6 +105,8 @@ class AdminEventController extends AbstractController
             'form' => $form,
             'event' => $event,
             'is_edit' => false,
+            'initial_seat_config' => null,
+            'taken_seats' => [],
         ]);
     }
 
@@ -106,6 +128,9 @@ class AdminEventController extends AbstractController
             throw $this->createNotFoundException('Event not found.');
         }
 
+        $takenSeats = $eventRepository->getTakenSeatLabels((int) $event->getId());
+        $seatMap = $this->seatMapService->buildSeatMap($event, $takenSeats);
+
         $form = $this->createForm(EventType::class, $event);
         $currentImage = $event->getImagePath();
         if ($currentImage !== null && $this->isValidExternalImageUrl($currentImage)) {
@@ -125,6 +150,25 @@ class AdminEventController extends AbstractController
                 $event->setImagePath($pastedUrl);
             }
 
+            if ($event->isSeatMapEnabled()) {
+                $rawConfig = (string) ($form->get('seatMapConfigJson')->getData() ?? '');
+                $sanitized = $this->seatMapService->sanitizeSeatMapConfigJson(
+                    $rawConfig,
+                    $event->getSeatRows(),
+                    $event->getSeatsPerRow(),
+                    $takenSeats,
+                );
+                $event->setSeatMapConfig($sanitized);
+                if ($sanitized !== null) {
+                    $event->setSeatRows($sanitized['rows']);
+                    $event->setSeatsPerRow(min(20, $sanitized['cols']));
+                }
+            } else {
+                $event->setSeatMapConfig(null);
+            }
+
+            $event->syncTotalSeatsFromSeatMap();
+
             $entityManager->flush();
 
             $this->addFlash(
@@ -139,7 +183,117 @@ class AdminEventController extends AbstractController
             'form' => $form,
             'event' => $event,
             'is_edit' => true,
+            'initial_seat_config' => $seatMap['editor_config'],
+            'taken_seats' => $takenSeats,
         ]);
+    }
+
+    #[Route('/{id}/seats', name: 'admin_events_seats', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
+    public function editSeats(
+        int $id,
+        Request $request,
+        EventRepository $eventRepository,
+        EntityManagerInterface $entityManager,
+    ): Response {
+        if (!$this->isAdminAuthenticated($request)) {
+            $request->getSession()->set(self::SESSION_TARGET_KEY, $request->getRequestUri());
+
+            return $this->redirectToRoute('admin_login');
+        }
+
+        $event = $eventRepository->find($id);
+        if ($event === null) {
+            throw $this->createNotFoundException('Event not found.');
+        }
+
+        $takenSeats = $eventRepository->getTakenSeatLabels((int) $event->getId());
+
+        if ($request->isMethod('POST')) {
+            $csrf = (string) $request->request->get('_csrf_token', '');
+            if (!$this->isCsrfTokenValid('arrange_seats_' . $event->getId(), $csrf)) {
+                $this->addFlash('admin_error', 'Security session expired. Please save the seat layout again.');
+
+                return $this->redirectToRoute('admin_events_seats', ['id' => $event->getId()]);
+            }
+
+            $rawConfig = (string) $request->request->get('seat_map_config_json', '');
+            $layout = (string) $request->request->get('seat_map_layout', $event->getSeatMapLayout());
+            $rows = max(1, min(26, (int) $request->request->get('seat_rows', $event->getSeatRows())));
+            $cols = max(2, min(20, (int) $request->request->get('seats_per_row', $event->getSeatsPerRow())));
+
+            $event->setSeatMapEnabled(true);
+            $event->setSeatMapLayout($layout);
+
+            $sanitized = $this->seatMapService->sanitizeSeatMapConfigJson($rawConfig, $rows, $cols, $takenSeats);
+            $event->setSeatMapConfig($sanitized);
+            if ($sanitized !== null) {
+                $event->setSeatRows($sanitized['rows']);
+                $event->setSeatsPerRow(min(20, $sanitized['cols']));
+            } else {
+                $event->setSeatRows($rows);
+                $event->setSeatsPerRow($cols);
+            }
+            $event->syncTotalSeatsFromSeatMap();
+            $entityManager->flush();
+
+            $this->addFlash(
+                'admin_success',
+                sprintf('Seat positions updated for "%s" (%d seats arranged)!', $event->getTitle(), $event->getTotalSeats())
+            );
+
+            return $this->redirectToRoute('admin_events_index');
+        }
+
+        $seatMap = $this->seatMapService->buildSeatMap($event, $takenSeats);
+
+        return $this->render('admin/events/arrange_seats.html.twig', [
+            'event' => $event,
+            'seat_map' => $seatMap,
+            'taken_seats' => $takenSeats,
+            'available_layouts' => Event::getAvailableSeatMapLayouts(),
+        ]);
+    }
+
+    #[Route('/{id}/delete', name: 'admin_events_delete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function delete(
+        int $id,
+        Request $request,
+        EventRepository $eventRepository,
+        EntityManagerInterface $entityManager,
+    ): Response {
+        if (!$this->isAdminAuthenticated($request)) {
+            $request->getSession()->set(self::SESSION_TARGET_KEY, $request->getRequestUri());
+
+            return $this->redirectToRoute('admin_login');
+        }
+
+        $event = $eventRepository->find($id);
+        if ($event === null) {
+            throw $this->createNotFoundException('Event not found.');
+        }
+
+        $redirectRoute = $request->request->get('redirect_to') === 'dashboard'
+            ? 'admin_dashboard'
+            : 'admin_events_index';
+
+        $csrfToken = (string) $request->request->get('_csrf_token', '');
+        if (!$this->isCsrfTokenValid('delete_event_' . $event->getId(), $csrfToken)) {
+            $this->addFlash('admin_error', 'Security session expired. Please try deleting the event again.');
+
+            return $this->redirectToRoute($redirectRoute);
+        }
+
+        $title = $event->getTitle();
+        foreach ($event->getTickets() as $ticket) {
+            $ticket->setEvent(null);
+        }
+
+        $entityManager->remove($event);
+        $entityManager->flush();
+
+        $this->addFlash('admin_success', sprintf('Event "%s" has been deleted.', $title));
+
+        return $this->redirectToRoute($redirectRoute);
     }
 
     #[Route('/{id}/photo', name: 'admin_events_update_photo', requirements: ['id' => '\d+'], methods: ['POST'])]

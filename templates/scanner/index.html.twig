@@ -137,6 +137,9 @@
                             <td><span class="ticket-id">#{{ ticket.id }}</span></td>
                             <td>
                                 <strong>{{ ticket.contact }}</strong>
+                                {% if ticket.seatLabel %}
+                                    <span class="badge badge-seat-map" style="margin-left:0.3rem;">Seat {{ ticket.seatLabel }}</span>
+                                {% endif %}
                                 {% if ticket.customer %}
                                     <div style="font-size:0.78rem;color:var(--text-muted);">Account: {{ ticket.customer.name }}</div>
                                 {% endif %}

@@ -38,3 +38,31 @@ SMTP_USER=your.email@gmail.com
 SMTP_PASSWORD="your-16-char-google-app-password"
 SMTP_FROM=your.email@gmail.com
 ```
+
+---
+
+## Local End-to-End (E2E) Tests
+
+No local Node.js or PHP installation is required — both test suites run inside Docker.
+
+### 1. Fast Backend E2E Tests (PHPUnit + Symfony BrowserKit)
+
+Runs against an isolated `ticketing_db_test` MySQL database:
+
+```bash
+docker exec ticketing-web php vendor/bin/phpunit --testdox
+```
+
+### 2. Real-Browser E2E Tests (Playwright in Chromium)
+
+Runs real browser clicks, seat map selection, drag/click seat arranging, and 1-seat-per-person verification against `http://web`:
+
+```bash
+docker compose --profile e2e run --rm --build e2e
+```
+
+After the first build, omit `--build` for instant runs:
+
+```bash
+docker compose --profile e2e run --rm e2e
+```

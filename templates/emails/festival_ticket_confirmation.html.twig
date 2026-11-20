@@ -57,6 +57,11 @@
                     <tr>
                         <td style="padding:5px 0;"><strong>Pass Tier:</strong> {{ ticket.title }} ({{ ticket.formattedPrice }})</td>
                     </tr>
+                    {% if ticket.seatLabel %}
+                        <tr>
+                            <td style="padding:5px 0;"><strong>Reserved Seat:</strong> {{ ticket.seatLabel }}</td>
+                        </tr>
+                    {% endif %}
                     <tr>
                         <td style="padding:5px 0;"><strong>Digital Pass Link:</strong> <a href="{{ pass_url }}" style="color:#ea580c;">{{ pass_url }}</a></td>
                     </tr>

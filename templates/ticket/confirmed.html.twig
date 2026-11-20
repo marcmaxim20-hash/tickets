@@ -8,50 +8,56 @@
         <div class="alert alert-warning" role="alert">{{ message }}</div>
     {% endfor %}
 
-    <section class="door-screen door-unlocked" style="padding: 2.6rem 2rem;">
-        <div class="door-icon-circle" aria-hidden="true">
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <section class="confirmed-pass-card">
+        <div class="confirmed-check-circle" aria-hidden="true">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
             </svg>
         </div>
 
-        <span class="badge badge-resolved" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
-            <span class="badge-dot"></span> ORDER #{{ ticket.id }} CONFIRMED &middot; PRIVATE TO YOUR ACCOUNT
+        <span class="badge badge-festival" style="font-size: 0.82rem; margin-bottom: 0.85rem;">
+            ORDER #{{ ticket.id }} CONFIRMED &middot; PRIVATE TO YOUR ACCOUNT
         </span>
 
-        <h1 style="margin: 0 0 0.5rem; font-size: clamp(1.75rem, 3.2vw, 2.25rem); font-weight: 800; color: #064e3b;">
+        <h1 class="confirmed-heading">
             You bought the ticket for {{ ticket.formattedPrice }}!
         </h1>
 
+        {% if ticket.seatLabel %}
+            <div style="margin: 0.55rem auto 1rem;">
+                <span class="seat-boarding-pill">Reserved Seat: {{ ticket.seatLabel }} &middot; 1 Person Only</span>
+            </div>
+        {% endif %}
+
         {% if ticket.event %}
-            <p style="margin: 0 auto 0.5rem; max-width: 500px; font-size: 1.05rem; font-weight: 700; color: #065f46;">
-                {{ ticket.event.title }} ({{ ticket.event.categoryLabel }}) &mdash; {{ ticket.title }}
-            </p>
-            <p style="margin: 0 auto 0.45rem; max-width: 520px; font-size: 0.9rem; color: #047857;">
-                Venue: {{ ticket.event.venue }} &middot; {{ ticket.event.startDate|date('M j, Y H:i') }} &ndash; {{ ticket.event.endDate|date('M j, Y H:i') }}
-            </p>
-            {% if ticket.event.location %}
-                <p style="margin: 0 auto 1.5rem; max-width: 520px; font-size: 0.9rem; color: #065f46;">
-                    <strong>Location:</strong> {{ ticket.event.location }}
-                    {% if ticket.event.mapsUrl %}
-                        &middot; <a href="{{ ticket.event.mapsUrl }}" target="_blank" rel="noopener noreferrer" style="font-weight:700;color:#047857;text-decoration:underline;">Open in Maps &nearr;</a>
-                    {% endif %}
+            <div class="confirmed-event-details">
+                <p class="confirmed-event-title">
+                    {{ ticket.event.title }} ({{ ticket.event.categoryLabel }}) &mdash; {{ ticket.title }}
                 </p>
-            {% else %}
-                <div style="margin-bottom: 1.5rem;"></div>
-            {% endif %}
+                <p class="confirmed-event-meta">
+                    <strong>Venue:</strong> {{ ticket.event.venue }} &middot; {{ ticket.event.startDate|date('M j, Y H:i') }} &ndash; {{ ticket.event.endDate|date('M j, Y H:i') }}
+                </p>
+                {% if ticket.event.location %}
+                    <p class="confirmed-event-meta" style="margin-bottom: 0;">
+                        <strong>Location:</strong> {{ ticket.event.location }}
+                        {% if ticket.event.mapsUrl %}
+                            &middot; <a href="{{ ticket.event.mapsUrl }}" target="_blank" rel="noopener noreferrer" class="maps-link">Open in Maps &nearr;</a>
+                        {% endif %}
+                    </p>
+                {% endif %}
+            </div>
         {% else %}
-            <p style="margin: 0 auto 1.5rem; max-width: 470px; font-size: 1.05rem; color: #047857;">
+            <p class="confirmed-event-meta" style="margin: 0 auto 1.5rem; max-width: 480px;">
                 Your <strong>{{ ticket.title }}</strong> is saved in your private account ({{ ticket.contact }}).
             </p>
         {% endif %}
 
-        <div class="qr-frame" style="margin-bottom: 1.5rem;">
+        <div class="qr-frame" style="margin-bottom: 1.65rem;">
             {{ qr_svg|raw }}
         </div>
 
         <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
-            <a href="{{ path('account_dashboard') }}" class="btn btn-primary btn-lg">
+            <a href="{{ path('account_dashboard') }}" class="btn btn-festival btn-lg">
                 View My Tickets &rarr;
             </a>
             <a href="{{ path('festival_pass_qr_png', {token: ticket.qrToken}) }}" download="festival-ticket-{{ ticket.id }}-qr.png" class="btn btn-secondary btn-lg">

@@ -41,6 +41,9 @@
                                 <strong>{{ event.title }}</strong>
                                 <div style="margin-top:0.2rem;display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center;">
                                     <span class="badge badge-festival">{{ event.categoryLabel }}</span>
+                                    {% if event.seatMapEnabled %}
+                                        <span class="badge badge-seat-map" style="font-size:0.7rem;">Seat Map {{ event.seatRows }}&times;{{ event.seatsPerRow }}</span>
+                                    {% endif %}
                                     {% if event.organizer %}
                                         <span class="badge badge-organizer" style="font-size:0.7rem;">By {{ event.organizer.name }}</span>
                                     {% endif %}
@@ -78,8 +81,14 @@
                                         <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/svg+xml" hidden onchange="this.form.submit()">
                                     </label>
                                 </form>
+                                <a href="{{ path('admin_events_seats', {id: event.id}) }}" class="btn btn-festival btn-sm" style="margin-left:0.3rem;">Arrange Seats</a>
                                 <a href="{{ path('admin_events_edit', {id: event.id}) }}" class="btn btn-secondary btn-sm" style="margin-left:0.3rem;">Edit</a>
                                 <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-secondary btn-sm" style="margin-left:0.3rem;">View</a>
+                                <form method="post" action="{{ path('admin_events_delete', {id: event.id}) }}" style="display:inline-block;margin:0 0 0 0.3rem;" onsubmit="return confirm('Delete event &quot;{{ event.title|e('js') }}&quot;? This cannot be undone.');">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('delete_event_' ~ event.id) }}">
+                                    <input type="hidden" name="redirect_to" value="events">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
                             </td>
                         </tr>
                     {% endfor %}

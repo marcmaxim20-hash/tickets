@@ -1,0 +1,123 @@
+{# Reusable Seat Map Builder with Interactive Drag-and-Drop Seat Position Editor #}
+{% set is_edit_mode = is_edit is defined and is_edit %}
+<div class="seat-builder-box" id="seat-map-builder" data-is-edit="{{ is_edit_mode ? '1' : '0' }}">
+    {{ form_widget(form.seatMapConfigJson) }}
+
+    <div class="seat-builder-header">
+        <label class="seat-builder-toggle">
+            {{ form_widget(form.seatMapEnabled, {'attr': {'class': 'seat-map-checkbox'}}) }}
+            <span>
+                <strong style="display:block;font-size:0.96rem;color:var(--text-main);">Interactive Seat Map &amp; Seat Position Editor (1 Seat = 1 Person)</strong>
+                <span style="display:block;font-size:0.8rem;color:var(--text-secondary);">
+                    Drag seats to change their positions, add/remove aisles, move the stage (Top/Bottom/Left/Right), and set price zones. Every seat is strictly for 1 person only.
+                </span>
+            </span>
+        </label>
+        <span id="seat-builder-total-pill" class="badge badge-festival" style="white-space:nowrap;">80 Mapped Seats</span>
+    </div>
+
+    <div id="seat-builder-config" class="seat-builder-config" {{ form.seatMapEnabled.vars.data ? '' : 'hidden' }}>
+        <div class="form-grid-3" style="margin-bottom: 1rem;">
+            <div class="form-group" style="margin-bottom:0;">
+                {{ form_label(form.seatMapLayout, null, {'label_attr': {'class': 'form-label'}}) }}
+                {{ form_widget(form.seatMapLayout, {'attr': {'class': 'form-select'}}) }}
+                <div class="form-errors">{{ form_errors(form.seatMapLayout) }}</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                {{ form_label(form.seatRows, null, {'label_attr': {'class': 'form-label'}}) }}
+                {{ form_widget(form.seatRows, {'attr': {'class': 'form-control'}}) }}
+                <div class="form-errors">{{ form_errors(form.seatRows) }}</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                {{ form_label(form.seatsPerRow, null, {'label_attr': {'class': 'form-label'}}) }}
+                {{ form_widget(form.seatsPerRow, {'attr': {'class': 'form-control'}}) }}
+                <div class="form-errors">{{ form_errors(form.seatsPerRow) }}</div>
+            </div>
+        </div>
+
+        {{ include('event/_seat_position_editor.html.twig', {
+            editor_id: 'form-seat-editor',
+            hidden_input_selector: 'input[name$="[seatMapConfigJson]"]',
+            layout_select_selector: 'select[name$="[seatMapLayout]"]',
+            rows_input_selector: 'input[name$="[seatRows]"]',
+            cols_input_selector: 'input[name$="[seatsPerRow]"]',
+            total_seats_input_selector: 'input[name$="[totalSeats]"]',
+            total_pill_selector: '#seat-builder-total-pill',
+            initial_config: initial_seat_config|default(null),
+            taken_seats: taken_seats|default([])
+        }) }}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var builder = document.getElementById('seat-map-builder');
+    if (!builder) return;
+
+    var isEdit = builder.getAttribute('data-is-edit') === '1';
+    var categorySelect = document.querySelector('select[name$="[category]"]');
+    var totalSeatsInput = document.querySelector('input[name$="[totalSeats]"]');
+    var enabledCheckbox = document.querySelector('input[name$="[seatMapEnabled]"]');
+    var layoutSelect = document.querySelector('select[name$="[seatMapLayout]"]');
+    var rowsInput = document.querySelector('input[name$="[seatRows]"]');
+    var colsInput = document.querySelector('input[name$="[seatsPerRow]"]');
+    var configBox = document.getElementById('seat-builder-config');
+    var totalPill = document.getElementById('seat-builder-total-pill');
+    var editorEl = document.getElementById('form-seat-editor');
+
+    if (!enabledCheckbox || !layoutSelect || !rowsInput || !colsInput) return;
+
+    function syncEnabledState() {
+        var enabled = enabledCheckbox.checked;
+        if (configBox) configBox.hidden = !enabled;
+        if (totalSeatsInput) totalSeatsInput.readOnly = enabled;
+
+        if (!enabled) {
+            if (totalPill) totalPill.textContent = 'General Admission';
+            return;
+        }
+        if (editorEl && typeof editorEl.syncHiddenConfig === 'function') {
+            editorEl.syncHiddenConfig();
+        }
+    }
+
+    function rebuildEditorFromControls() {
+        if (enabledCheckbox.checked && editorEl && typeof editorEl.rebuildFromPreset === 'function') {
+            editorEl.rebuildFromPreset();
+        }
+    }
+
+    enabledCheckbox.addEventListener('change', syncEnabledState);
+    layoutSelect.addEventListener('change', rebuildEditorFromControls);
+    rowsInput.addEventListener('change', rebuildEditorFromControls);
+    colsInput.addEventListener('change', rebuildEditorFromControls);
+
+    if (categorySelect && !isEdit) {
+        categorySelect.addEventListener('change', function () {
+            var cat = categorySelect.value;
+            var layoutByCategory = {
+                theatre: 'theatre',
+                cinema: 'theatre',
+                comedy: 'saloon',
+                saloon: 'saloon',
+                conference: 'saloon',
+                workshop: 'saloon',
+                building: 'building',
+                concert: 'building',
+                sports: 'building',
+                exhibition: 'building',
+                festival: 'festival',
+                nightlife: 'festival'
+            };
+            if (enabledCheckbox.checked && layoutByCategory[cat]) {
+                layoutSelect.value = layoutByCategory[cat];
+                rebuildEditorFromControls();
+            }
+        });
+    }
+
+    syncEnabledState();
+});
+</script>

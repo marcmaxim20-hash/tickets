@@ -3,7 +3,7 @@
 {% block title %}Organizer Dashboard — {{ customer.name }}{% endblock %}
 
 {% block body %}
-<div class="container">
+<div class="container" style="max-width: min(96vw, 1800px);">
     {% for message in app.flashes('success') %}
         <div class="alert alert-success" role="status">{{ message }}</div>
     {% endfor %}
@@ -29,7 +29,7 @@
     </div>
 
     <div class="alert alert-info" role="status" style="margin-bottom: 1.5rem;">
-        <strong>Organizer Permissions:</strong> As an Organizer, you can <strong>create new events</strong> (including venue, address/location, seats, schedule, and cover photo). Editing existing events, changing photos, and managing customer tickets are restricted to Administrators.
+        <span><strong>Organizer Permissions:</strong> Create events, arrange seats, and delete your own events.</span>
     </div>
 
     <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
@@ -79,8 +79,11 @@
                                 </td>
                                 <td>
                                     <strong>{{ event.title }}</strong>
-                                    <div style="margin-top:0.2rem;">
+                                    <div style="margin-top:0.2rem;display:flex;gap:0.35rem;flex-wrap:wrap;">
                                         <span class="badge badge-festival">{{ event.categoryLabel }}</span>
+                                        {% if event.seatMapEnabled %}
+                                            <span class="badge badge-seat-map" style="font-size:0.7rem;">Seat Map {{ event.seatRows }}&times;{{ event.seatsPerRow }}</span>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <td>
@@ -106,7 +109,12 @@
                                     {% endif %}
                                 </td>
                                 <td style="text-align:right;white-space:nowrap;">
-                                    <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-secondary btn-sm">View Event &rarr;</a>
+                                    <a href="{{ path('organizer_events_seats', {id: event.id}) }}" class="btn btn-primary btn-sm">Arrange Seats</a>
+                                    <a href="{{ path('event_show', {id: event.id}) }}" class="btn btn-secondary btn-sm" style="margin-left:0.3rem;">View Event &rarr;</a>
+                                    <form method="post" action="{{ path('organizer_events_delete', {id: event.id}) }}" style="display:inline-block;margin:0 0 0 0.3rem;" onsubmit="return confirm('Delete your event &quot;{{ event.title|e('js') }}&quot;? This cannot be undone.');">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('organizer_delete_event_' ~ event.id) }}">
+                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                    </form>
                                 </td>
                             </tr>
                         {% endfor %}

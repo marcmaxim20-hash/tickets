@@ -64,6 +64,9 @@
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.35rem;">
                             <span class="ticket-id">#{{ ticket.id }}</span>
+                            {% if ticket.seatLabel %}
+                                <span class="badge badge-seat-map">Seat {{ ticket.seatLabel }}</span>
+                            {% endif %}
                             <span class="price-tag">{{ ticket.formattedPrice }}</span>
                             <span class="badge badge-unused"><span class="badge-dot"></span>Unused</span>
                         </div>
@@ -130,6 +133,9 @@
                                 <td>
                                     <div>
                                         <span class="ticket-id">#{{ ticket.id }}</span>
+                                        {% if ticket.seatLabel %}
+                                            <span class="badge badge-seat-map" style="margin-left:0.3rem;">Seat {{ ticket.seatLabel }}</span>
+                                        {% endif %}
                                         <strong style="margin-left:0.35rem;">{{ ticket.event ? ticket.event.title : ticket.title }}</strong>
                                     </div>
                                     <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.15rem;">

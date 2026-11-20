@@ -1,0 +1,118 @@
+{# Event Description Textarea with "Generate with AI" Button (shared by Organizer & Admin event forms) #}
+<div class="form-group" id="ai-description-wrapper">
+    <div class="ai-desc-label-row">
+        {{ form_label(form.description, null, {'label_attr': {'class': 'form-label', 'style': 'margin-bottom:0;'}}) }}
+        <button
+            type="button"
+            id="btn-generate-ai-description"
+            class="btn btn-ai btn-sm"
+            data-endpoint="{{ path('ai_generate_event_description') }}"
+            data-csrf-token="{{ csrf_token('ai_event_description') }}"
+        >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3z"/>
+                <path d="M19 3l.7 2.1L22 5.8l-2.3.7L19 8.6l-.7-2.1L16 5.8l2.3-.7L19 3z"/>
+            </svg>
+            <span data-ai-btn-label>Generate with AI</span>
+        </button>
+    </div>
+
+    {{ form_widget(form.description, {'attr': {'class': 'form-control', 'rows': 5}}) }}
+    <div class="form-errors">{{ form_errors(form.description) }}</div>
+    <div id="ai-description-status" class="ai-desc-status" role="status" aria-live="polite" hidden></div>
+</div>
+
+<script>
+(function () {
+    function initAiDescriptionButton() {
+        var btn = document.getElementById('btn-generate-ai-description');
+        if (!btn || btn.dataset.aiBound === '1') return;
+        btn.dataset.aiBound = '1';
+
+        var labelSpan = btn.querySelector('[data-ai-btn-label]');
+        var statusEl = document.getElementById('ai-description-status');
+        var descTextarea = document.querySelector('textarea[name$="[description]"]');
+
+        function setStatus(message, type) {
+            if (!statusEl) return;
+            statusEl.textContent = message;
+            statusEl.className = 'ai-desc-status' + (type ? ' is-' + type : '');
+            statusEl.hidden = !message;
+        }
+
+        btn.addEventListener('click', async function () {
+            if (btn.disabled) return;
+
+            var titleInput = document.querySelector('input[name$="[title]"]');
+            var categorySelect = document.querySelector('select[name$="[category]"]');
+            var venueInput = document.querySelector('input[name$="[venue]"]');
+            var locationInput = document.querySelector('input[name$="[location]"]');
+            var startInput = document.querySelector('input[name$="[startDate]"]');
+            var endInput = document.querySelector('input[name$="[endDate]"]');
+            var seatsInput = document.querySelector('input[name$="[totalSeats]"]');
+            var imageUrlInput = document.querySelector('input[name$="[imageUrl]"]');
+
+            var titleVal = titleInput ? titleInput.value.trim() : '';
+            var venueVal = venueInput ? venueInput.value.trim() : '';
+
+            if (!titleVal && !venueVal) {
+                setStatus('Enter an Event Name (or Venue) above first, then click Generate with AI.', 'error');
+                if (titleInput) titleInput.focus();
+                return;
+            }
+
+            var categoryLabel = '';
+            if (categorySelect && categorySelect.selectedOptions && categorySelect.selectedOptions[0]) {
+                categoryLabel = categorySelect.selectedOptions[0].textContent.trim();
+            }
+
+            btn.disabled = true;
+            btn.classList.add('is-generating');
+            if (labelSpan) labelSpan.textContent = 'Generating...';
+            setStatus('Writing an event description with AI...', 'loading');
+
+            try {
+                var resp = await fetch(btn.getAttribute('data-endpoint'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        _csrf_token: btn.getAttribute('data-csrf-token'),
+                        title: titleVal,
+                        category: categoryLabel,
+                        venue: venueVal,
+                        location: locationInput ? locationInput.value.trim() : '',
+                        start_date: startInput ? startInput.value.trim() : '',
+                        end_date: endInput ? endInput.value.trim() : '',
+                        total_seats: seatsInput ? seatsInput.value.trim() : '',
+                        image_url: imageUrlInput ? imageUrlInput.value.trim() : ''
+                    })
+                });
+
+                var payload = await resp.json().catch(function () { return {}; });
+                if (!resp.ok || !payload.ok || !payload.description) {
+                    setStatus(payload.error || 'Could not generate AI description. Please try again.', 'error');
+                    return;
+                }
+
+                if (descTextarea) {
+                    descTextarea.value = payload.description;
+                    descTextarea.focus();
+                }
+                setStatus('AI description generated! You can edit it or click Generate with AI again.', 'success');
+            } catch (err) {
+                setStatus('Network error while contacting AI service. Please try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('is-generating');
+                if (labelSpan) labelSpan.textContent = 'Generate with AI';
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAiDescriptionButton);
+    } else {
+        initAiDescriptionButton();
+    }
+})();
+</script>

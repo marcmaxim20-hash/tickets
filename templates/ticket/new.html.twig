@@ -3,15 +3,24 @@
 {% block title %}Buy Ticket — {{ selected_event.title }}{% endblock %}
 
 {% block body %}
-<div class="container-narrow" style="max-width: 760px;">
+<div class="container-narrow" style="max-width: {{ seat_map ? '1220px' : '920px' }};">
     <div class="breadcrumb">
         <a href="{{ path('event_show', {id: selected_event.id}) }}">&larr; Back to {{ selected_event.title }}</a>
     </div>
 
+    {% for message in app.flashes('warning') %}
+        <div class="alert alert-warning" role="alert">{{ message }}</div>
+    {% endfor %}
+
     <div class="card">
         <div class="card-header checkout-card-header">
             <div>
-                <span class="badge badge-festival" style="margin-bottom: 0.45rem;">{{ selected_event.categoryLabel }} &middot; {{ selected_event.availableSeats }} Seats Left</span>
+                <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-bottom:0.45rem;">
+                    <span class="badge badge-festival">{{ selected_event.categoryLabel }} &middot; {{ selected_event.availableSeats }} Seats Left</span>
+                    {% if selected_event.seatMapEnabled %}
+                        <span class="badge badge-seat-map">Pick Exact Seat ({{ selected_event.seatRows }}&times;{{ selected_event.seatsPerRow }})</span>
+                    {% endif %}
+                </div>
                 <h1 class="section-title" style="font-size: 1.4rem;">Buy Ticket for {{ selected_event.title }}</h1>
                 <p class="section-subtitle" style="color: var(--text-secondary);">
                     Reserves 1 seat at <strong>{{ selected_event.venue }}</strong>{% if selected_event.location %} ({{ selected_event.location }}){% endif %} and generates your private QR pass.
@@ -24,7 +33,10 @@
                 tiers: tiers,
                 selected_event: selected_event,
                 all_events: all_events,
-                customer: customer
+                customer: customer,
+                seat_map: seat_map,
+                selected_seat: selected_seat,
+                seat_error: seat_error
             }) }}
         </div>
     </div>

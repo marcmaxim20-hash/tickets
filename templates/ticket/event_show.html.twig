@@ -4,10 +4,19 @@
 
 {% block body %}
 <div class="container">
-    <div class="breadcrumb">
+    <div class="breadcrumb" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">
         <a href="{{ path('ticket_home') }}">&larr; Back to All Events</a>
+        {% if delete_event_url is defined and delete_event_url %}
+            <form method="post" action="{{ delete_event_url }}" style="margin:0;" onsubmit="return confirm('Delete event &quot;{{ event.title|e('js') }}&quot;? This cannot be undone.');">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token(delete_event_csrf_id) }}">
+                <button type="submit" class="btn btn-danger btn-sm">Delete Event</button>
+            </form>
+        {% endif %}
     </div>
 
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success" role="status">{{ message }}</div>
+    {% endfor %}
     {% for message in app.flashes('warning') %}
         <div class="alert alert-warning" role="alert">{{ message }}</div>
     {% endfor %}
@@ -20,6 +29,9 @@
         <div class="event-hero-info">
             <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.65rem;">
                 <span class="badge badge-festival">{{ event.categoryLabel }}</span>
+                {% if event.seatMapEnabled %}
+                    <span class="badge badge-seat-map">Interactive Seat Map ({{ event.seatRows }}&times;{{ event.seatsPerRow }})</span>
+                {% endif %}
                 {% if event.soldOut %}
                     <span class="badge badge-used"><span class="badge-dot"></span>SOLD OUT</span>
                 {% else %}
@@ -42,13 +54,16 @@
                 </li>
                 {% if event.location %}
                     <li>
-                        <span class="meta-label">Location (Where to Go)</span>
+                        <span class="meta-label">Street Address (Where to Go)</span>
                         <span class="meta-value" style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
                             <span>{{ event.location }}</span>
-                            {% if event.mapsUrl %}
-                                <a href="{{ event.mapsUrl }}" target="_blank" rel="noopener noreferrer" class="maps-link">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                                    <span>Open in Maps &nearr;</span>
+                            <a href="#event-location-map" class="maps-link">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                <span>View Map &darr;</span>
+                            </a>
+                            {% if event.directionsUrl %}
+                                <a href="{{ event.directionsUrl }}" target="_blank" rel="noopener noreferrer" class="maps-link">
+                                    <span>Directions &nearr;</span>
                                 </a>
                             {% endif %}
                         </span>
@@ -79,11 +94,58 @@
         </div>
     </section>
 
+    {% if event.mapsEmbedUrl %}
+        <section id="event-location-map" class="card no-reveal location-map-card" style="margin-top: 2rem;" aria-labelledby="location-map-heading">
+            <div class="card-header">
+                <div>
+                    <h2 id="location-map-heading" class="section-title" style="display:flex;align-items:center;gap:0.45rem;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span>Venue Location &amp; Address Map</span>
+                    </h2>
+                    <p class="section-subtitle">
+                        <strong>{{ event.venue }}</strong>{% if event.location %} &mdash; {{ event.location }}{% endif %}
+                    </p>
+                </div>
+
+                <div class="location-map-actions">
+                    {% if event.location %}
+                        <button type="button" class="btn btn-secondary btn-sm" data-copy-text="{{ event.venue ~ ', ' ~ event.location }}">
+                            Copy Address
+                        </button>
+                    {% endif %}
+                    {% if event.directionsUrl %}
+                        <a href="{{ event.directionsUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-festival btn-sm">
+                            Get Directions &nearr;
+                        </a>
+                    {% endif %}
+                    {% if event.mapsUrl %}
+                        <a href="{{ event.mapsUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+                            Open in Google Maps &nearr;
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="location-map-frame-wrap">
+                <iframe
+                    src="{{ event.mapsEmbedUrl }}"
+                    class="location-map-iframe"
+                    title="Map for {{ event.title }} at {{ event.venue }}"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen
+                ></iframe>
+            </div>
+        </section>
+    {% endif %}
+
     {% set viewer = current_customer() %}
+
     <section class="pricing-section" aria-labelledby="tiers-heading">
         <div>
             <h2 id="tiers-heading" class="section-title" style="font-size: 1.4rem;">Select Your Ticket for {{ event.title }}</h2>
-            <p class="section-subtitle">Each ticket reserves 1 seat in {{ event.venue }} and generates a unique single-entry QR code.</p>
+            <p class="section-subtitle">
+                Every seat is strictly for <strong>1 person only</strong> at {{ event.venue }} and generates a unique single-entry QR code.{% if seat_map is defined and seat_map %} Pick a tier below or choose your exact seat on the map at the bottom.{% endif %}
+            </p>
         </div>
 
         {% if viewer and viewer.organizer %}
@@ -123,5 +185,18 @@
             {% endfor %}
         </div>
     </section>
+
+    {% if seat_map is defined and seat_map %}
+        <section id="event-seat-map" class="card no-reveal" style="margin-top: 2.25rem;" aria-label="Interactive Seat Map">
+            <div class="card-body">
+                {{ include('event/_seat_map_picker.html.twig', {
+                    event: event,
+                    seat_map: seat_map,
+                    mode: 'preview_link',
+                    arrange_seats_url: arrange_seats_url|default(null)
+                }) }}
+            </div>
+        </section>
+    {% endif %}
 </div>
 {% endblock %}
